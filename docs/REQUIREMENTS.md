@@ -27,8 +27,8 @@ auditable history of every change.
 | F3 | **Multi-currency support** | Salaries stored in local currency *and* normalized to USD using the exchange rate captured at the time of the record, so cross-country comparison is possible without rewriting history when rates move. |
 | F4 | **Search, filter & pagination** | Server-side filtering by country, department, level, and status across 10k+ employees, with sorting and pagination. |
 | F5 | **Spreadsheet import** | Bulk CSV/XLSX import with row-level validation, a dry-run preview, and an all-or-nothing commit — the migration path off Excel. |
-| F6 | **Compensation analytics** | Aggregate views: headcount, total spend, and min / median / average / max pay, grouped by country, department, or level, with a point-in-time filter. |
-| F7 | **Salary bands & compa-ratio** | Bands (min/mid/max per role, level, and country) as first-class data; each employee's compa-ratio against their band, with distribution buckets to surface who sits below, within, or above range. |
+| F6 | **Compensation analytics** | Aggregate views: headcount, total spend, and min / median / average / max pay, grouped by region, country, department, or level, with a point-in-time filter. |
+| F7 | **Salary bands & compa-ratio** | Bands (min/mid/max per role, level, and pay zone) as first-class data; each employee's compa-ratio against their band, with distribution buckets to surface who sits below, within, or above range. |
 | F8 | **Roles & authentication** | Two roles: **HR Admin** (full read/write) and **Viewer** (read-only analytics, no PII edits). Authenticated sessions; authorization enforced server-side. |
 | F9 | **Audit trail** | Every salary and band change records who changed what, when, and why. |
 
@@ -53,7 +53,17 @@ auditable history of every change.
 - **Stack:** Ruby on Rails (API-only) + PostgreSQL; React SPA frontend.
 - **Deployment:** a publicly reachable demo with seeded, synthetic data.
 
-## 5. Open Questions
+## 5. Geographic model
 
-1. Do salary bands vary by country, or by broader geographic zone? (v1 assumes per-country.)
-2. Is a "region" grouping needed above country for analytics, or is per-country sufficient?
+Countries are a reference table carrying two independent groupings, because compensation
+and reporting do not slice the world the same way:
+
+- **Pay zone** — what salary bands are keyed on. Countries with comparable markets share
+  a zone (`Western Europe`), and a zone may hold a single country where that market is
+  distinct (`Switzerland`). This keeps the band count in the dozens rather than the
+  thousands, which is what makes bands maintainable by hand.
+- **Region** — the analytics rollup (NA / LATAM / EMEA / APAC). EMEA is one region but
+  several pay zones, which is precisely why these are separate fields.
+
+Bands are denominated in their own local currency; comparison against a salary is
+normalized to USD at evaluation time.
