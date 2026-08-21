@@ -171,13 +171,40 @@ Each is a documented step with a benchmark, not a premature optimization.
 
 ---
 
-## 6. Commit conventions
+## 6. Branching & commit conventions
 
-Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`, `chore:`), one
-logical change per commit, suite green at every commit. Bodies explain *why* when the
-reasoning isn't obvious from the diff. Each milestone is a small reviewable series —
-schema, then model, then service, then endpoint, then tests — so the history reads as a
-narrative rather than a dump.
+**One branch per milestone, one PR per branch** — twelve in total, matching §3. Each
+milestone was scoped to be independently testable and independently valuable, which is
+exactly the property that makes a good PR boundary. Branches are named for their
+milestone so the sequence is self-evident:
+
+```
+feat/m00-tooling      feat/m04-auth          feat/m08-bands
+feat/m01-geography    feat/m05-employee-api  feat/m09-frontend
+feat/m02-history      feat/m06-import        feat/m10-performance
+feat/m03-audit        feat/m07-analytics     feat/m11-deploy
+```
+
+**`main` is protected**: no direct pushes, PR with green CI required to merge. The one
+exception is M0 itself, which lands before protection is switched on — it is the commit
+that *creates* the CI workflow, so it cannot be gated by it. Protection goes on
+immediately after M0 merges, and every subsequent milestone passes through it.
+
+**Rebase-and-merge, never squash.** This matters more than it looks. Squash-merging
+twelve PRs would collapse the entire build into twelve commits and discard the
+incremental history — the thing this repository exists to demonstrate. Rebase-and-merge
+keeps every individual commit *and* keeps `main` linear, so `git log` reads as one
+continuous narrative while the PR list preserves the milestone grouping.
+
+**Commits** follow Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `refactor:`,
+`chore:`), one logical change each, suite green at every commit. Bodies explain *why*
+when the reasoning isn't obvious from the diff. Within a milestone the series runs
+schema → model → service → endpoint → tests, so each PR reads as a narrative rather
+than a dump.
+
+**PR descriptions carry the reasoning**: what changed, what was traded off, what was
+deliberately left out. On a solo repository the PR body is where design rationale lives
+that would otherwise be lost in a chat log — and it is the first thing a reviewer reads.
 
 ---
 
