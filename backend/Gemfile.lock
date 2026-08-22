@@ -99,7 +99,6 @@ GEM
     diff-lcs (1.6.2)
     drb (2.2.3)
     erb (6.0.7)
-    error_highlight (0.7.2)
     erubi (1.13.1)
     factory_bot (6.6.0)
       activesupport (>= 6.1.0)
@@ -318,7 +317,6 @@ DEPENDENCIES
   bcrypt (~> 3.1.7)
   bootsnap
   debug
-  error_highlight (>= 0.4.0)
   factory_bot_rails
   money-rails (~> 1.15)
   pg (~> 1.5)
