@@ -48,9 +48,16 @@ schema alone.
   *and* negative cases. Edge cases named in the milestone table are requirements.
 - **Commits**: Conventional Commits, one logical change each, suite green at every commit.
   Bodies explain *why* when the diff doesn't.
+- **Commit granularity**: a commit marks a point where the system meaningfully changed
+  state — not every file touched on the way there. One deliverable produced in one sitting
+  is **one commit**, even when it spans several files. Splitting by file, or by the order
+  you happened to write things, is granularity theater: it looks incremental and carries
+  no information. When genuinely unsure, prefer fewer.
 - **Branches**: one per milestone, `feat/mNN-slug`. PR per branch.
-- **Merging**: rebase-and-merge. **Never squash** — it would collapse the incremental
-  history this repository exists to demonstrate.
+- **Merging**: rebase-and-merge. **Never squash on merge** — that would collapse a
+  milestone's commits into one and discard the incremental history this repository exists
+  to demonstrate. This is a *merge policy*, not a licence to over-split while authoring;
+  the two rules work together — write few, meaningful commits, then preserve them.
 
 ## Rules for agent sessions
 
