@@ -91,3 +91,33 @@ The stack (Rails API + PostgreSQL, React SPA) is scaffolded locally under `backe
 and `frontend/`. Work on this project from a **local** Claude Code session so the agent
 can read the real tree, run migrations, and run tests directly. Cloud sessions only see
 what has been pushed to GitHub.
+
+## M0 decisions (2026-08-23)
+
+### Database: SQLite → PostgreSQL 16
+
+The scaffolded app used SQLite. Swapped to PostgreSQL (`gem "pg"`, `database.yml`
+rewritten for env-driven `DATABASE_URL`). The plan's query design depends on
+PostgreSQL-only features that SQLite cannot provide: `DISTINCT ON` (§5 hot path for
+current salary), `percentile_cont` (M7 median), `jsonb` (`audit_events.changes`),
+native `enum` types (`role`, `status`, `region`), and `numeric(18,8)` for
+`exchange_rates.rate_to_usd`. SQLite's lack of exact decimal arithmetic makes
+`rate_to_usd` a float — silently wrong for every money conversion. The switch to
+PostgreSQL is the only path that makes the full schema buildable without compromising
+the data model.
+
+### Test framework: Minitest → RSpec + FactoryBot
+
+Scaffolded `backend/test/` (Minitest) removed; `backend/spec/` created with `rspec-rails`
+and `factory_bot_rails`. The conventions in CLAUDE.md mandate RSpec throughout; the two
+frameworks cannot coexist cleanly. FactoryBot replaces fixtures — factories compose
+better and make the negative-case specs named in each milestone table legible without
+fixture archaeology.
+
+### Ruby version pinned to 3.3.6
+
+`backend/.ruby-version` and the Gemfile `ruby` directive updated to match the local
+runtime (`ruby -v` → 3.3.6). The original scaffold specified 3.1.4, which is EOL and
+mismatched the installed runtime, causing `Bundler::RubyVersionMismatch` on every
+`rails` invocation. CI pins to `ruby-version-file: backend/.ruby-version` so the
+version is declared once and the CI matrix tracks it automatically.
