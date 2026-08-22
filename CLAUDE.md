@@ -59,6 +59,11 @@ schema alone.
 - **Update the decision log.** Any design decision made during a milestone is appended to
   `docs/CONTEXT.md` with its reasoning *before* the PR opens. Superseded decisions are
   kept and marked, not deleted.
+- **Update the manual test plan.** A milestone that creates user-visible behavior adds
+  checks to `docs/MANUAL_TEST_PLAN.md` before its PR opens. A bug found by manual QA
+  becomes an automated regression spec *first*; the manual check is then proposed for
+  removal in the PR body — never deleted unilaterally, since removing a check asserts a
+  risk is gone.
 - **No new dependencies** without stating why in the commit body.
 - **Model selection.** Default to Sonnet — the architecture is settled, so most milestones
   are implementation against a spec. Escalate to Opus for band resolution edge cases (M8),
