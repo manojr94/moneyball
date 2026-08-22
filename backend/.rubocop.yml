@@ -1,0 +1,30 @@
+plugins:
+  - rubocop-rails
+  - rubocop-rspec
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.3
+  SuggestExtensions: false
+  Exclude:
+    - "db/schema.rb"
+    - "db/migrate/**/*"
+    - "bin/**/*"
+    - "vendor/**/*"
+
+# Rails uses double-quoted strings by convention.
+Style/StringLiterals:
+  Enabled: false
+
+# Not required in Rails 7 and adds noise to scaffolded files.
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+# Functional grouping is clearer than strict alphabetical order.
+Bundler/OrderedGems:
+  Enabled: false
+
+# Rails-generated skeletons (ApplicationRecord, ApplicationMailer, etc.) have no
+# meaningful documentation to add; this cop fires on every one of them.
+Style/Documentation:
+  Enabled: false

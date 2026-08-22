@@ -79,12 +79,11 @@ schema alone.
 
 ## Commands
 
-Filled in by M0. Until then, verify before relying on any of these.
-
 ```bash
 # backend (from backend/)
-bin/rails db:create db:migrate   # set up the database
-bin/rails db:seed                # reference + demo data
+bundle install
+bin/rails db:create db:migrate   # set up the database (requires Postgres running)
+bin/rails db:seed                # reference + demo data (M1+)
 bundle exec rspec                # test suite
 bundle exec rubocop              # lint
 bin/rails s                      # API on :3000
@@ -92,6 +91,7 @@ bin/rails s                      # API on :3000
 # frontend (from frontend/)
 npm install
 npm run dev                      # SPA on :5173
-npm test
-npm run lint
+npm test                         # Vitest (run once, no watch)
+npm run lint                     # ESLint
+npm run format                   # Prettier
 ```
