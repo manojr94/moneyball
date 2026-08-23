@@ -76,6 +76,12 @@ schema alone.
   are implementation against a spec. Escalate to Opus for band resolution edge cases (M8),
   analytics query design (M7), import concurrency (M6), or any test failing twice for
   reasons you don't understand. Escalate on evidence of difficulty, not on a schedule.
+- **Implement directly, never via sub-agents.** Milestone code — migrations, models, specs
+  — is written inline in the conversation, not delegated to a spawned agent. Sub-agents
+  are black boxes: progress is invisible, decisions can't be questioned in real time, and
+  skills can be triggered unexpectedly mid-run. Reserve the Agent tool for open-ended
+  codebase surveys only. After any agent does run, always verify with `git status` before
+  drawing conclusions about what it did.
 
 ## Commands
 
