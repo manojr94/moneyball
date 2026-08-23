@@ -1,9 +1,24 @@
-# This file should ensure the existence of records required to run the application in every environment (production,
-# development, test). The code here should be idempotent so that it can be executed at any point in every environment.
-# The data can then be loaded with the bin/rails db:seed command (or created alongside the database with db:setup).
-#
-# Example:
-#
-#   ["Action", "Comedy", "Drama", "Horror"].each do |genre_name|
-#     MovieGenre.find_or_create_by!(name: genre_name)
-#   end
+zones = {
+  'na'    => 'North America',
+  'latam' => 'Latin America',
+  'emea'  => 'EMEA',
+  'apac'  => 'APAC'
+}
+
+zone_records = zones.transform_values do |name|
+  region = zones.key(name)
+  slug = "default-#{region}"
+  PayZone.find_or_create_by!(slug: slug) { |z| z.name = name }
+end
+
+country_data = YAML.load_file(Rails.root.join('db/data/countries.yml'))
+country_data.each do |code, attrs|
+  zone = zone_records[attrs['region']]
+  Country.find_or_create_by!(code: code) do |c|
+    c.name             = attrs['name']
+    c.default_currency = attrs['default_currency']
+    c.region           = attrs['region']
+    c.pay_zone         = zone
+    c.needs_review     = false
+  end
+end
