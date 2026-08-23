@@ -113,8 +113,33 @@ is present when Rails checks it.
 
 If the country code is not in `COUNTRY_DATA` (e.g. a test-only code like `XK`) and the
 country row already exists, the callback is a no-op. If the code is unknown and the row
-does not exist, `find_or_create_unconfigured` returns nil and the employee's own
-`country_code` presence validation surfaces the problem — no silent failure.
+does not exist, `find_or_create_unconfigured` returns nil and the `belongs_to :country`
+existence validation surfaces the problem ("must exist") — no silent failure.
+
+### Post-review corrections (2026-08-23)
+
+Three bugs found in adversarial review of the M1 diff, fixed before the PR opened:
+
+**Race condition in `find_or_create_unconfigured`** — The original
+`find_or_initialize_by` + `new_record?` + `save!` pattern is not atomic. Two concurrent
+requests with the same unknown country_code would both see `new_record? == true` and
+both call `save!`; the second raises `ActiveRecord::RecordNotUnique`. Fixed by rescuing
+`RecordNotUnique` and re-finding — the concurrent winner's row is returned.
+
+**No automated hard-delete guard on Employee** — The "never hard-delete" invariant was
+only covered by manual test M1.5, with no regression spec. Added `before_destroy` that
+adds a validation error and `throw :abort`, plus two automated specs (one for `destroy`
+returning false, one for `destroy!` raising `RecordNotDestroyed`). SQL-level truncation
+used by DatabaseCleaner bypasses ActiveRecord callbacks, so test teardown is unaffected.
+
+**`created_at` / `updated_at` columns were `timestamp` not `timestamptz`** — The
+implementation plan (line 68) requires `timestamptz` for instants. `t.timestamps` emits
+`timestamp without time zone`. Since the branch was pre-PR with no external consumers,
+the four `create_table` migrations were edited in place (no correction migration) and
+the database rebuilt from scratch. An initializer
+(`config/initializers/postgres_datetime.rb`) sets
+`PostgreSQLAdapter.datetime_type = :timestamptz` so future `t.timestamps` calls in
+later milestones produce the correct type without requiring explicit column declarations.
 
 ## Working agreements
 

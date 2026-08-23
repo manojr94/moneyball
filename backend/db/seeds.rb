@@ -1,14 +1,12 @@
 zones = {
-  'na'    => 'North America',
+  'na' => 'North America',
   'latam' => 'Latin America',
-  'emea'  => 'EMEA',
-  'apac'  => 'APAC'
+  'emea' => 'EMEA',
+  'apac' => 'APAC'
 }
 
-zone_records = zones.transform_values do |name|
-  region = zones.key(name)
-  slug = "default-#{region}"
-  PayZone.find_or_create_by!(slug: slug) { |z| z.name = name }
+zone_records = zones.each_with_object({}) do |(region, name), acc|
+  acc[region] = PayZone.find_or_create_by!(slug: "default-#{region}") { |z| z.name = name }
 end
 
 country_data = YAML.load_file(Rails.root.join('db/data/countries.yml'))

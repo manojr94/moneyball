@@ -6,7 +6,8 @@ class CreateCountries < ActiveRecord::Migration[7.1]
       t.references :pay_zone, foreign_key: true
       t.column :region, :region_type, null: false
       t.boolean :needs_review, null: false, default: false
-      t.timestamps
+      t.column :created_at, :timestamptz, null: false
+      t.column :updated_at, :timestamptz, null: false
     end
   end
 end

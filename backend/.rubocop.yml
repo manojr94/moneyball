@@ -28,3 +28,14 @@ Bundler/OrderedGems:
 # meaningful documentation to add; this cop fires on every one of them.
 Style/Documentation:
   Enabled: false
+
+# Negative-case specs naturally pair "is invalid" with "has this error message" —
+# two expectations that belong together. Cap at 5 to allow setup-heavy integration
+# examples without permitting unfocused catch-all tests.
+RSpec/MultipleExpectations:
+  Max: 5
+
+# Integration specs (e.g. auto-create country on employee save) require enough
+# lines to set up realistic state. Cap at 20; anything longer should be split.
+RSpec/ExampleLength:
+  Max: 20

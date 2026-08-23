@@ -92,13 +92,26 @@ RSpec.describe Employee, type: :model do
     it 'is valid when terminated_on is set and status is terminated' do
       country = create(:country)
       employee = build(:employee, status: 'terminated', terminated_on: Date.current,
-                       country_code: country.code)
+                                  country_code: country.code)
       expect(employee).to be_valid
     end
 
     it 'is valid when terminated_on is nil and status is active' do
       employee = build(:employee, status: 'active', terminated_on: nil)
       expect(employee).to be_valid
+    end
+  end
+
+  describe 'hard-delete prevention' do
+    it 'destroy returns false and leaves the record intact' do
+      employee = create(:employee)
+      expect(employee.destroy).to be false
+      expect(described_class.exists?(employee.id)).to be true
+    end
+
+    it 'destroy! raises RecordNotDestroyed' do
+      employee = create(:employee)
+      expect { employee.destroy! }.to raise_error(ActiveRecord::RecordNotDestroyed)
     end
   end
 
@@ -131,7 +144,7 @@ RSpec.describe Employee, type: :model do
       inactive = create(:employee, status: 'inactive')
       terminated = create(:employee, status: 'terminated', terminated_on: Date.current)
 
-      result = Employee.active
+      result = described_class.active
       expect(result).to include(active)
       expect(result).not_to include(inactive)
       expect(result).not_to include(terminated)
@@ -140,12 +153,12 @@ RSpec.describe Employee, type: :model do
 
   describe 'unconfigured country auto-creation' do
     it 'saves an employee in an unconfigured country and creates the country with needs_review' do
-      na_zone = create(:pay_zone, name: 'North America', slug: 'default-na')
+      create(:pay_zone, name: 'North America', slug: 'default-na')
       department = create(:department)
 
       expect(Country.exists?(code: 'US')).to be false
 
-      employee = Employee.new(
+      employee = described_class.new(
         employee_number: 'EMP99999',
         first_name: 'John',
         last_name: 'Smith',
@@ -163,10 +176,10 @@ RSpec.describe Employee, type: :model do
     end
 
     it 'saves successfully when country_code is not in COUNTRY_DATA but country already exists' do
-      existing_country = create(:country, code: 'XK')
+      create(:country, code: 'XK')
       department = create(:department)
 
-      employee = Employee.new(
+      employee = described_class.new(
         employee_number: 'EMP88888',
         first_name: 'Alice',
         last_name: 'Smith',

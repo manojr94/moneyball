@@ -1,12 +1,3 @@
-EMPLOYEE_COUNTRY_SEQUENCE = Enumerator.new do |e|
-  letters = ('A'..'Z').to_a
-  n = 0
-  loop do
-    e << "#{letters[(n / 26) % 26]}#{letters[n % 26]}"
-    n += 1
-  end
-end
-
 FactoryBot.define do
   factory :employee do
     sequence(:employee_number) { |n| "EMP#{n.to_s.rjust(5, '0')}" }
@@ -18,7 +9,10 @@ FactoryBot.define do
     job_level { 'L3' }
     hire_date { Date.new(2020, 1, 1) }
     status { 'active' }
-    country_code { EMPLOYEE_COUNTRY_SEQUENCE.next }
+    sequence(:country_code) do |n|
+      letters = ('A'..'Z').to_a
+      "#{letters[(n / 26) % 26]}#{letters[n % 26]}"
+    end
 
     # Country must be persisted even in build-strategy specs because
     # Employee#ensure_country_exists and belongs_to :country both query the DB.

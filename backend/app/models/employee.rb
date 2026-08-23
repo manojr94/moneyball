@@ -1,5 +1,5 @@
 class Employee < ApplicationRecord
-  belongs_to :country, foreign_key: :country_code, primary_key: :code
+  belongs_to :country, foreign_key: :country_code, primary_key: :code, inverse_of: :employees
   belongs_to :department
 
   STATUSES = %w[active inactive terminated].freeze
@@ -15,6 +15,10 @@ class Employee < ApplicationRecord
   scope :active, -> { where(status: 'active') }
 
   before_validation :ensure_country_exists
+  before_destroy do
+    errors.add(:base, 'employees may not be hard-deleted; use deactivate! or terminate!')
+    throw :abort
+  end
 
   def deactivate!
     update!(status: 'inactive')

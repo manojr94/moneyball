@@ -77,7 +77,7 @@ RSpec.describe Country, type: :model do
     let!(:na_zone) { create(:pay_zone, name: 'North America', slug: 'default-na') }
 
     it 'creates a country marked needs_review when it does not exist' do
-      country = Country.find_or_create_unconfigured('US')
+      country = described_class.find_or_create_unconfigured('US')
       expect(country).to be_persisted
       expect(country.needs_review).to be true
       expect(country.code).to eq('US')
@@ -85,18 +85,18 @@ RSpec.describe Country, type: :model do
 
     it 'returns the existing country without modification if it already exists' do
       existing = create(:country, code: 'US', needs_review: false)
-      result = Country.find_or_create_unconfigured('US')
+      result = described_class.find_or_create_unconfigured('US')
       expect(result.id).to eq(existing.id)
       expect(result.needs_review).to be false
     end
 
     it 'returns nil for an unknown country code' do
-      result = Country.find_or_create_unconfigured('XX')
+      result = described_class.find_or_create_unconfigured('XX')
       expect(result).to be_nil
     end
 
     it 'assigns the matching default pay zone' do
-      country = Country.find_or_create_unconfigured('US')
+      country = described_class.find_or_create_unconfigured('US')
       expect(country.pay_zone).to eq(na_zone)
     end
   end

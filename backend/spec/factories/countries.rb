@@ -12,5 +12,19 @@ FactoryBot.define do
     region { 'na' }
     needs_review { false }
     association :pay_zone
+
+    trait :jpy do
+      code { 'JP' }
+      name { 'Japan' }
+      default_currency { 'JPY' }
+      region { 'apac' }
+    end
+
+    trait :kwd do
+      code { 'KW' }
+      name { 'Kuwait' }
+      default_currency { 'KWD' }
+      region { 'emea' }
+    end
   end
 end

@@ -25,16 +25,17 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000005) do
     t.bigint "pay_zone_id"
     t.enum "region", null: false, enum_type: "region_type"
     t.boolean "needs_review", default: false, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.index ["pay_zone_id"], name: "index_countries_on_pay_zone_id"
   end
 
   create_table "departments", force: :cascade do |t|
     t.string "name", null: false
     t.string "slug", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
+    t.index ["name"], name: "index_departments_on_name", unique: true
     t.index ["slug"], name: "index_departments_on_slug", unique: true
   end
 
@@ -50,8 +51,8 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000005) do
     t.date "hire_date", null: false
     t.enum "status", default: "active", null: false, enum_type: "employee_status"
     t.date "terminated_on"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
     t.index ["country_code"], name: "index_employees_on_country_code"
     t.index ["department_id"], name: "index_employees_on_department_id"
     t.index ["email"], name: "index_employees_on_email", unique: true
@@ -62,8 +63,9 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000005) do
   create_table "pay_zones", force: :cascade do |t|
     t.string "name", null: false
     t.string "slug", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.datetime "created_at", precision: nil, null: false
+    t.datetime "updated_at", precision: nil, null: false
+    t.index ["name"], name: "index_pay_zones_on_name", unique: true
     t.index ["slug"], name: "index_pay_zones_on_slug", unique: true
   end
 

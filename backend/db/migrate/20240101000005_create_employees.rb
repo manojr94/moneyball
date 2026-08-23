@@ -12,7 +12,8 @@ class CreateEmployees < ActiveRecord::Migration[7.1]
       t.date :hire_date, null: false
       t.column :status, :employee_status, null: false, default: 'active'
       t.date :terminated_on
-      t.timestamps
+      t.column :created_at, :timestamptz, null: false
+      t.column :updated_at, :timestamptz, null: false
     end
 
     add_index :employees, :employee_number, unique: true
