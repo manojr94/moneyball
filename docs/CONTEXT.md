@@ -77,6 +77,45 @@ employee API at M5**, so no endpoint is ever written unprotected and retrofitted
 means the first four milestones ship nothing demo-able. Swapping them trades security
 posture for an earlier visible feature — recommendation is to keep the current order.
 
+## M1 decisions (2026-08-24)
+
+### Country code as string primary key
+
+`countries.code` (ISO 3166-1 alpha-2) is the table's primary key rather than a surrogate
+integer. The code is stable, globally unique, and already the natural join key — every
+`employees.country_code` FK, every seed row, and every `find_or_create_unconfigured` call
+uses the two-letter code directly. A surrogate key would add an extra column and an extra
+join for no benefit; the code is the identity.
+
+*Trade-off:* string PKs are marginally slower to join than integers at high cardinality.
+Countries is a ~250-row reference table; the join is negligible.
+
+### Postgres enums for region and employee status
+
+`region_type` (`na/latam/emea/apac`) and `employee_status` (`active/inactive/terminated`)
+are Postgres enum types rather than string columns with an `inclusion` validation.
+The database rejects an invalid value at write time regardless of how the row was
+inserted — a Rails validation can be bypassed (raw SQL, console, future migration),
+a Postgres type constraint cannot.
+
+*Trade-off:* adding an enum value requires a migration (`ALTER TYPE`). Both sets are fixed
+and closed by design (CLAUDE.md: "Fixed, small, closed sets — the database should reject
+a typo, not store it"), so this is not a practical concern.
+
+### Auto-create unconfigured country lives on Employee as a before_validation callback
+
+When an employee is saved with a `country_code` not yet in the `countries` table, the
+callback calls `Country.find_or_create_unconfigured(country_code)` before validation
+runs, so the `belongs_to :country` association is satisfied and the employee saves
+without error. The logic sits on `Employee` rather than `Country` because it is triggered
+by an employee event, and on `before_validation` (not `before_save`) so the association
+is present when Rails checks it.
+
+If the country code is not in `COUNTRY_DATA` (e.g. a test-only code like `XK`) and the
+country row already exists, the callback is a no-op. If the code is unknown and the row
+does not exist, `find_or_create_unconfigured` returns nil and the employee's own
+`country_code` presence validation surfaces the problem — no silent failure.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a
