@@ -90,9 +90,11 @@ RSpec.describe Country, type: :model do
       expect(result.needs_review).to be false
     end
 
-    it 'returns nil for an unknown country code' do
+    it 'creates a bare needs_review record for a truly unknown country code' do
       result = described_class.find_or_create_unconfigured('XX')
-      expect(result).to be_nil
+      expect(result).to be_persisted
+      expect(result.needs_review).to be true
+      expect(result.name).to be_nil
     end
 
     it 'assigns the matching default pay zone' do

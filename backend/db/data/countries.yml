@@ -82,7 +82,7 @@ SE:
   name: Sweden
   default_currency: SEK
   region: emea
-NO:
+"NO":
   name: Norway
   default_currency: NOK
   region: emea

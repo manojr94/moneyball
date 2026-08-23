@@ -20,10 +20,10 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000005) do
   create_enum "region_type", ["na", "latam", "emea", "apac"]
 
   create_table "countries", primary_key: "code", id: :string, force: :cascade do |t|
-    t.string "name", null: false
-    t.string "default_currency", limit: 3, null: false
+    t.string "name"
+    t.string "default_currency", limit: 3
     t.bigint "pay_zone_id"
-    t.enum "region", null: false, enum_type: "region_type"
+    t.enum "region", enum_type: "region_type"
     t.boolean "needs_review", default: false, null: false
     t.datetime "created_at", precision: nil, null: false
     t.datetime "updated_at", precision: nil, null: false
