@@ -37,6 +37,22 @@ checks you tick.
 
 ---
 
+## M1. Geography, departments & employees (model/seed layer)
+
+M1 has no API surface yet — manual checks target the database and seed output.
+Run `bin/rails db:seed` before these checks.
+
+| # | Check | Catches |
+|---|---|---|
+| M1.1 | Run `bin/rails db:seed` on a fresh database — does it complete without error? | Seed referencing a pay zone or country before it exists |
+| M1.2 | In `psql`, check `SELECT count(*) FROM countries` — is it ≥ 50? Do all four regions appear? | Seed data truncated or region column left blank |
+| M1.3 | Check that every country row has a non-null `pay_zone_id` and `needs_review = false` | Default zone assignment failing silently |
+| M1.4 | In Rails console: `Employee.create!(employee_number: 'T001', first_name: 'A', last_name: 'B', email: 't@t.com', country_code: 'XX', department: Department.first, job_title: 'X', job_level: 'L1', hire_date: Date.today)` — does the save succeed and does `Country.find('XX').needs_review` return `true`? | The invariant: data entry never blocked by missing config |
+| M1.5 | Attempt `Employee.first.destroy` in console — does it raise or return false? | Hard-delete path must not exist (no `dependent: :destroy` anywhere in the chain) |
+| M1.6 | Run `bin/rails db:seed` a second time — does it stay idempotent (no duplicate-key errors)? | `find_or_create_by!` vs. `create!` — re-seeding a live database must be safe |
+
+---
+
 ## 1. Money representation
 
 The minor-units decision fails visibly here or nowhere.

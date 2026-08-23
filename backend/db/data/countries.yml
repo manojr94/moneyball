@@ -1,0 +1,252 @@
+US:
+  name: United States
+  default_currency: USD
+  region: na
+CA:
+  name: Canada
+  default_currency: CAD
+  region: na
+MX:
+  name: Mexico
+  default_currency: MXN
+  region: na
+GT:
+  name: Guatemala
+  default_currency: GTQ
+  region: latam
+CR:
+  name: Costa Rica
+  default_currency: CRC
+  region: latam
+PA:
+  name: Panama
+  default_currency: USD
+  region: latam
+BR:
+  name: Brazil
+  default_currency: BRL
+  region: latam
+AR:
+  name: Argentina
+  default_currency: ARS
+  region: latam
+CO:
+  name: Colombia
+  default_currency: COP
+  region: latam
+CL:
+  name: Chile
+  default_currency: CLP
+  region: latam
+PE:
+  name: Peru
+  default_currency: PEN
+  region: latam
+VE:
+  name: Venezuela
+  default_currency: VES
+  region: latam
+EC:
+  name: Ecuador
+  default_currency: USD
+  region: latam
+UY:
+  name: Uruguay
+  default_currency: UYU
+  region: latam
+GB:
+  name: United Kingdom
+  default_currency: GBP
+  region: emea
+DE:
+  name: Germany
+  default_currency: EUR
+  region: emea
+FR:
+  name: France
+  default_currency: EUR
+  region: emea
+ES:
+  name: Spain
+  default_currency: EUR
+  region: emea
+IT:
+  name: Italy
+  default_currency: EUR
+  region: emea
+NL:
+  name: Netherlands
+  default_currency: EUR
+  region: emea
+SE:
+  name: Sweden
+  default_currency: SEK
+  region: emea
+"NO":
+  name: Norway
+  default_currency: NOK
+  region: emea
+DK:
+  name: Denmark
+  default_currency: DKK
+  region: emea
+FI:
+  name: Finland
+  default_currency: EUR
+  region: emea
+PL:
+  name: Poland
+  default_currency: PLN
+  region: emea
+CH:
+  name: Switzerland
+  default_currency: CHF
+  region: emea
+AT:
+  name: Austria
+  default_currency: EUR
+  region: emea
+BE:
+  name: Belgium
+  default_currency: EUR
+  region: emea
+PT:
+  name: Portugal
+  default_currency: EUR
+  region: emea
+IE:
+  name: Ireland
+  default_currency: EUR
+  region: emea
+CZ:
+  name: Czech Republic
+  default_currency: CZK
+  region: emea
+HU:
+  name: Hungary
+  default_currency: HUF
+  region: emea
+RO:
+  name: Romania
+  default_currency: RON
+  region: emea
+GR:
+  name: Greece
+  default_currency: EUR
+  region: emea
+TR:
+  name: Turkey
+  default_currency: TRY
+  region: emea
+IL:
+  name: Israel
+  default_currency: ILS
+  region: emea
+SA:
+  name: Saudi Arabia
+  default_currency: SAR
+  region: emea
+AE:
+  name: United Arab Emirates
+  default_currency: AED
+  region: emea
+ZA:
+  name: South Africa
+  default_currency: ZAR
+  region: emea
+NG:
+  name: Nigeria
+  default_currency: NGN
+  region: emea
+KE:
+  name: Kenya
+  default_currency: KES
+  region: emea
+EG:
+  name: Egypt
+  default_currency: EGP
+  region: emea
+MA:
+  name: Morocco
+  default_currency: MAD
+  region: emea
+GH:
+  name: Ghana
+  default_currency: GHS
+  region: emea
+ET:
+  name: Ethiopia
+  default_currency: ETB
+  region: emea
+TZ:
+  name: Tanzania
+  default_currency: TZS
+  region: emea
+SN:
+  name: Senegal
+  default_currency: XOF
+  region: emea
+JP:
+  name: Japan
+  default_currency: JPY
+  region: apac
+CN:
+  name: China
+  default_currency: CNY
+  region: apac
+IN:
+  name: India
+  default_currency: INR
+  region: apac
+AU:
+  name: Australia
+  default_currency: AUD
+  region: apac
+NZ:
+  name: New Zealand
+  default_currency: NZD
+  region: apac
+SG:
+  name: Singapore
+  default_currency: SGD
+  region: apac
+KR:
+  name: South Korea
+  default_currency: KRW
+  region: apac
+HK:
+  name: Hong Kong
+  default_currency: HKD
+  region: apac
+TH:
+  name: Thailand
+  default_currency: THB
+  region: apac
+ID:
+  name: Indonesia
+  default_currency: IDR
+  region: apac
+MY:
+  name: Malaysia
+  default_currency: MYR
+  region: apac
+PH:
+  name: Philippines
+  default_currency: PHP
+  region: apac
+VN:
+  name: Vietnam
+  default_currency: VND
+  region: apac
+TW:
+  name: Taiwan
+  default_currency: TWD
+  region: apac
+PK:
+  name: Pakistan
+  default_currency: PKR
+  region: apac
+BD:
+  name: Bangladesh
+  default_currency: BDT
+  region: apac

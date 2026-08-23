@@ -82,7 +82,17 @@ own, and none are visible in a schema — they only show up in a diff.
 - [ ] Do commit bodies explain **why** where the diff doesn't?
 - [ ] Any **new dependency** — is the reason stated in the commit body?
 
-## 7. The question worth asking last
+## 7. Posting the review to GitHub
+
+The intended workflow for a milestone review:
+
+1. **Review first, fix second.** Run the review against the branch *before* committing fixes. This creates an authentic paper trail: findings visible as PR comments, fixes landing as a subsequent commit.
+2. **Post findings as a PR review** using `curl` against the GitHub API (no `gh` CLI on this machine — see `~/.claude/CLAUDE.md` for the exact command and gotchas).
+3. **Use `"event": "COMMENT"`**, not `"REQUEST_CHANGES"` — GitHub rejects the latter when reviewer and PR author are the same account.
+4. **Test with a single comment before posting the full review.** A single bad line reference fails the entire batch silently.
+5. **Commit and push the fixes** after the review is posted. The PR then shows: original code → review comments → fix commit.
+
+## 8. The question worth asking last
 
 > If this milestone is wrong, how would we find out?
 

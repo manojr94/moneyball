@@ -77,6 +77,70 @@ employee API at M5**, so no endpoint is ever written unprotected and retrofitted
 means the first four milestones ship nothing demo-able. Swapping them trades security
 posture for an earlier visible feature — recommendation is to keep the current order.
 
+## M1 decisions (2026-08-24)
+
+### Country code as string primary key
+
+`countries.code` (ISO 3166-1 alpha-2) is the table's primary key rather than a surrogate
+integer. The code is stable, globally unique, and already the natural join key — every
+`employees.country_code` FK, every seed row, and every `find_or_create_unconfigured` call
+uses the two-letter code directly. A surrogate key would add an extra column and an extra
+join for no benefit; the code is the identity.
+
+*Trade-off:* string PKs are marginally slower to join than integers at high cardinality.
+Countries is a ~250-row reference table; the join is negligible.
+
+### Postgres enums for region and employee status
+
+`region_type` (`na/latam/emea/apac`) and `employee_status` (`active/inactive/terminated`)
+are Postgres enum types rather than string columns with an `inclusion` validation.
+The database rejects an invalid value at write time regardless of how the row was
+inserted — a Rails validation can be bypassed (raw SQL, console, future migration),
+a Postgres type constraint cannot.
+
+*Trade-off:* adding an enum value requires a migration (`ALTER TYPE`). Both sets are fixed
+and closed by design (CLAUDE.md: "Fixed, small, closed sets — the database should reject
+a typo, not store it"), so this is not a practical concern.
+
+### Auto-create unconfigured country lives on Employee as a before_validation callback
+
+When an employee is saved with a `country_code` not yet in the `countries` table, the
+callback calls `Country.find_or_create_unconfigured(country_code)` before validation
+runs, so the `belongs_to :country` association is satisfied and the employee saves
+without error. The logic sits on `Employee` rather than `Country` because it is triggered
+by an employee event, and on `before_validation` (not `before_save`) so the association
+is present when Rails checks it.
+
+If the country code is not in `COUNTRY_DATA` (e.g. a test-only code like `XK`) and the
+country row already exists, the callback is a no-op. If the code is unknown and the row
+does not exist, `find_or_create_unconfigured` returns nil and the `belongs_to :country`
+existence validation surfaces the problem ("must exist") — no silent failure.
+
+### Post-review corrections (2026-08-23)
+
+Three bugs found in adversarial review of the M1 diff, fixed before the PR opened:
+
+**Race condition in `find_or_create_unconfigured`** — The original
+`find_or_initialize_by` + `new_record?` + `save!` pattern is not atomic. Two concurrent
+requests with the same unknown country_code would both see `new_record? == true` and
+both call `save!`; the second raises `ActiveRecord::RecordNotUnique`. Fixed by rescuing
+`RecordNotUnique` and re-finding — the concurrent winner's row is returned.
+
+**No automated hard-delete guard on Employee** — The "never hard-delete" invariant was
+only covered by manual test M1.5, with no regression spec. Added `before_destroy` that
+adds a validation error and `throw :abort`, plus two automated specs (one for `destroy`
+returning false, one for `destroy!` raising `RecordNotDestroyed`). SQL-level truncation
+used by DatabaseCleaner bypasses ActiveRecord callbacks, so test teardown is unaffected.
+
+**`created_at` / `updated_at` columns were `timestamp` not `timestamptz`** — The
+implementation plan (line 68) requires `timestamptz` for instants. `t.timestamps` emits
+`timestamp without time zone`. Since the branch was pre-PR with no external consumers,
+the four `create_table` migrations were edited in place (no correction migration) and
+the database rebuilt from scratch. An initializer
+(`config/initializers/postgres_datetime.rb`) sets
+`PostgreSQLAdapter.datetime_type = :timestamptz` so future `t.timestamps` calls in
+later milestones produce the correct type without requiring explicit column declarations.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a
