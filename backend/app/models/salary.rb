@@ -5,8 +5,7 @@ class Salary < ApplicationRecord
 
   validates :amount_minor_units, presence: true,
                                  numericality: { only_integer: true, greater_than: 0 }
-  validates :currency, presence: true,
-                       format: { with: /\A[A-Z]{3}\z/, message: 'must be a 3-letter ISO 4217 code' }
+  validates :currency, presence: true, format: { with: /\A[A-Z]{3}\z/ }
   validates :effective_date, presence: true
   validates :reason, presence: true, inclusion: { in: VALID_REASONS }
 
@@ -22,7 +21,7 @@ class Salary < ApplicationRecord
     throw :abort
   end
 
-  scope :as_of, ->(date) { where('effective_date <= ?', date).order(effective_date: :desc, id: :desc) }
+  scope :as_of, ->(date) { where(effective_date: ..date).order(effective_date: :desc, id: :desc) }
 
   def amount
     Money.new(amount_minor_units, currency)

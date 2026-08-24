@@ -194,4 +194,45 @@ RSpec.describe Employee, type: :model do
       expect(employee.save).to be true
     end
   end
+
+  describe '#salary_on and #current_salary' do
+    let(:employee) { create(:employee) }
+
+    it 'returns nil when the employee has no salaries' do
+      expect(employee.salary_on(Date.current)).to be_nil
+      expect(employee.current_salary).to be_nil
+    end
+
+    context 'with a salary history' do
+      let!(:jan) do
+        create(:salary, employee: employee, effective_date: Date.new(2024, 1, 1),
+                        amount_minor_units: 8_000_00)
+      end
+      let!(:jul) do
+        create(:salary, employee: employee, effective_date: Date.new(2024, 7, 1),
+                        amount_minor_units: 9_500_00)
+      end
+
+      it 'returns nil before the first salary date' do
+        expect(employee.salary_on(Date.new(2023, 12, 31))).to be_nil
+      end
+
+      it 'returns the correct salary at each point in time' do
+        expect(employee.salary_on(Date.new(2024, 1, 1))).to eq(jan)
+        expect(employee.salary_on(Date.new(2024, 6, 30))).to eq(jan)
+        expect(employee.salary_on(Date.new(2024, 7, 1))).to eq(jul)
+        expect(employee.salary_on(Date.new(2025, 1, 1))).to eq(jul)
+      end
+
+      it '#current_salary delegates to salary_on(Date.current)' do
+        travel_to(Date.new(2024, 3, 15)) do
+          expect(employee.current_salary).to eq(jan)
+        end
+
+        travel_to(Date.new(2024, 9, 1)) do
+          expect(employee.current_salary).to eq(jul)
+        end
+      end
+    end
+  end
 end
