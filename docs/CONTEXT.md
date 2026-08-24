@@ -180,6 +180,25 @@ Configured globally in `config/initializers/money.rb` and applied explicitly in
 0.5 away from zero. The alternative (banker's rounding, `ROUND_HALF_EVEN`) is statistically
 less biased but unusual for payroll applications where staff expect the conventional rule.
 
+### `update_all` bypasses the append-only guard
+
+`before_update` and `before_destroy` on `ExchangeRate` block mutations through the
+ActiveRecord model lifecycle, but `ExchangeRate.update_all(...)` and
+`ExchangeRate.where(...).update_all(...)` execute SQL directly and skip all callbacks.
+This is a standard Rails limitation. Any future rate-correction tooling must use `INSERT`
+(a new row with a later `effective_date`), never `update_all`. There is no application
+path that calls `update_all` on this table; the guard exists to catch accidental
+single-record mutations through the ORM.
+
+### `config.default_currency = :usd` in money-rails initializer
+
+`money-rails` requires a default currency to be configured; USD was chosen as the
+technical default. This creates a latent footgun: `Money.new(amount)` without an explicit
+currency silently produces a USD Money object, in tension with the invariant that nobody
+is paid in USD. Every `Money.new` call in application code must pass an explicit currency
+argument. USD as default is an initializer requirement, not a signal that USD is
+semantically meaningful as a default salary currency.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a

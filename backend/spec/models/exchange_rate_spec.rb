@@ -48,6 +48,13 @@ RSpec.describe ExchangeRate, type: :model do
       rate.effective_date = nil
       expect(rate).not_to be_valid
     end
+
+    it 'rejects a duplicate (currency, effective_date) pair' do
+      create(:exchange_rate, currency: 'EUR', effective_date: Date.new(2024, 1, 1))
+      duplicate = build(:exchange_rate, currency: 'EUR', effective_date: Date.new(2024, 1, 1))
+      expect(duplicate).not_to be_valid
+      expect(duplicate.errors[:effective_date]).to be_present
+    end
   end
 
   describe 'append-only invariant' do
@@ -61,7 +68,7 @@ RSpec.describe ExchangeRate, type: :model do
 
     it 'cannot be destroyed' do
       expect(persisted.destroy).to be(false)
-      expect(ExchangeRate.exists?(persisted.id)).to be(true)
+      expect(described_class.exists?(persisted.id)).to be(true)
     end
 
     it 'raises on destroy!' do
@@ -76,23 +83,25 @@ RSpec.describe ExchangeRate, type: :model do
     end
 
     it 'returns the rate on the exact date' do
-      result = ExchangeRate.as_of('JPY', Date.new(2024, 3, 1))
+      result = described_class.as_of('JPY', Date.new(2024, 3, 1))
       expect(result.rate_to_usd).to eq(BigDecimal('0.00680'))
     end
 
     it 'returns the most recent prior rate when no rate exists on the exact date' do
-      result = ExchangeRate.as_of('JPY', Date.new(2024, 2, 15))
+      result = described_class.as_of('JPY', Date.new(2024, 2, 15))
       expect(result.rate_to_usd).to eq(BigDecimal('0.00654'))
     end
 
     it 'returns nil when no rate exists on or before the date' do
-      result = ExchangeRate.as_of('JPY', Date.new(2023, 12, 31))
+      result = described_class.as_of('JPY', Date.new(2023, 12, 31))
       expect(result).to be_nil
     end
 
     it 'does not use a rate dated after the as-of date' do
-      result = ExchangeRate.as_of('JPY', Date.new(2023, 12, 31))
-      expect(result).to be_nil
+      # Two rates exist: 2024-01-01 and 2024-03-01. Querying 2024-01-15 must
+      # return the Jan rate, not the Mar rate.
+      result = described_class.as_of('JPY', Date.new(2024, 1, 15))
+      expect(result.rate_to_usd).to eq(BigDecimal('0.00654'))
     end
   end
 end

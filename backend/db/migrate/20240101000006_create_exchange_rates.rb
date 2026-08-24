@@ -8,6 +8,7 @@ class CreateExchangeRates < ActiveRecord::Migration[7.1]
     end
 
     add_index :exchange_rates, %i[currency effective_date],
+              unique: true,
               order: { effective_date: :desc },
               name: 'index_exchange_rates_on_currency_and_effective_date'
   end

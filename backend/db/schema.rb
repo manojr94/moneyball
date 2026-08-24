@@ -65,7 +65,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000006) do
     t.decimal "rate_to_usd", precision: 18, scale: 8, null: false
     t.date "effective_date", null: false
     t.datetime "created_at", null: false
-    t.index ["currency", "effective_date"], name: "index_exchange_rates_on_currency_and_effective_date", order: { effective_date: :desc }
+    t.index ["currency", "effective_date"], name: "index_exchange_rates_on_currency_and_effective_date", unique: true, order: { effective_date: :desc }
   end
 
   create_table "pay_zones", force: :cascade do |t|

@@ -4,6 +4,7 @@ class ExchangeRate < ApplicationRecord
   validates :currency, presence: true, format: { with: VALID_CURRENCY }
   validates :rate_to_usd, presence: true, numericality: { greater_than: 0 }
   validates :effective_date, presence: true
+  validates :effective_date, uniqueness: { scope: :currency }, allow_blank: true
 
   before_update do
     errors.add(:base, 'exchange_rates rows are append-only and may not be updated')
