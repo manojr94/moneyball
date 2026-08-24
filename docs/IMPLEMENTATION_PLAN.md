@@ -311,6 +311,17 @@ than a dump.
 deliberately left out. On a solo repository the PR body is where design rationale lives
 that would otherwise be lost in a chat log — and it is the first thing a reviewer reads.
 
+**Pre-PR checklist — run locally before opening the PR:**
+
+```bash
+bundle exec rspec        # suite must be green
+bundle exec rubocop      # zero offences — fix, don't suppress
+```
+
+Both checks are required. CI catching a RuboCop offence after the PR is open means it
+was skippable locally and wasn't. Run them in order: a failing spec often explains a
+lint error, so fix tests first.
+
 ---
 
 ## 7. Risks

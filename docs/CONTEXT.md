@@ -141,6 +141,64 @@ the database rebuilt from scratch. An initializer
 `PostgreSQLAdapter.datetime_type = :timestamptz` so future `t.timestamps` calls in
 later milestones produce the correct type without requiring explicit column declarations.
 
+## M2 decisions (2026-08-24)
+
+### `exchange_rates` has `created_at` but no `updated_at`
+
+The table is append-only: a correction is a new row, never an edit. Including `updated_at`
+would imply rows can be mutated; omitting it makes the immutability structural in the
+schema rather than only enforced at the model layer. `created_at` is kept for "when was
+this rate entered" — a legitimate audit question.
+
+### `string limit: 3` instead of `char(3)` for the currency column
+
+Rails does not expose `char(n)` as a migration column type on PostgreSQL. `string limit: 3`
+maps to `character varying(3)` and carries the same length constraint while working with
+the standard Rails column API. A check constraint on format (`/\A[A-Z]{3}\z/`) is enforced
+at the model layer via `validates :currency, format:`.
+
+### FxConverter converts only to USD
+
+The only cross-currency comparison in v1 is normalization to a common unit for analytics
+and compa-ratio. USD is the single target for all conversions; `exchange_rates` stores
+`rate_to_usd` per row. A multi-target converter would require a cross-rate join
+(`from → USD → to`) which is unneeded complexity for v1 and can be added when the need
+arises.
+
+### `Money::Currency.find` guards unknown currencies
+
+`FxConverter` raises `UnknownCurrencyError` for any code the money gem does not
+recognise. This is cheaper than an allowlist in application code and leverages the gem's
+complete ISO 4217 dataset, which already includes all currencies the app will encounter.
+A three-letter code that passes the database `format:` validation but is not an ISO
+currency is still rejected here with an explicit error rather than a silent null.
+
+### Rounding: `BigDecimal::ROUND_HALF_UP`
+
+Configured globally in `config/initializers/money.rb` and applied explicitly in
+`FxConverter` when truncating fractional USD cents. Standard accounting rounding — rounds
+0.5 away from zero. The alternative (banker's rounding, `ROUND_HALF_EVEN`) is statistically
+less biased but unusual for payroll applications where staff expect the conventional rule.
+
+### `update_all` bypasses the append-only guard
+
+`before_update` and `before_destroy` on `ExchangeRate` block mutations through the
+ActiveRecord model lifecycle, but `ExchangeRate.update_all(...)` and
+`ExchangeRate.where(...).update_all(...)` execute SQL directly and skip all callbacks.
+This is a standard Rails limitation. Any future rate-correction tooling must use `INSERT`
+(a new row with a later `effective_date`), never `update_all`. There is no application
+path that calls `update_all` on this table; the guard exists to catch accidental
+single-record mutations through the ORM.
+
+### `config.default_currency = :usd` in money-rails initializer
+
+`money-rails` requires a default currency to be configured; USD was chosen as the
+technical default. This creates a latent footgun: `Money.new(amount)` without an explicit
+currency silently produces a USD Money object, in tension with the invariant that nobody
+is paid in USD. Every `Money.new` call in application code must pass an explicit currency
+argument. USD as default is an initializer requirement, not a signal that USD is
+semantically meaningful as a default salary currency.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a
