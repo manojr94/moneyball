@@ -11,6 +11,9 @@ class Salary < ApplicationRecord
 
   validate :currency_must_be_known
 
+  # Blocks all updates, including touch. If a future association adds touch: true
+  # on the Salary side, salary writes will abort unexpectedly. Remove the touch
+  # before adding it.
   before_update do
     errors.add(:base, 'salary records are immutable; record a new row instead')
     throw :abort

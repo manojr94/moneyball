@@ -86,6 +86,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000007) do
     t.bigint "created_by_id"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["created_by_id"], name: "index_salaries_on_created_by_id"
     t.index ["employee_id", "effective_date"], name: "index_salaries_on_employee_id_and_effective_date", order: { effective_date: :desc }
     t.index ["employee_id"], name: "index_salaries_on_employee_id"
   end

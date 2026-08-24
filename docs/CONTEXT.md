@@ -241,7 +241,10 @@ a same-day correction is a valid business operation.
 The `salaries` table includes `created_by_id` (bigint, nullable) to record which user
 initiated each pay event. The `users` table does not exist until M4, so the FK constraint
 is deferred. The column is nullable so M3 tests and seeds do not require a real user record.
-The FK will be added in M4's migration alongside the users table.
+The FK will be added in M4's migration alongside the users table. An index on `created_by_id`
+is added in M3 so the FK migration in M4 is cheap (no table rewrite needed). M4's migration
+must handle pre-existing rows with phantom `created_by_id` values (e.g. test seeds) before
+enabling the constraint.
 
 ### `salary` rows are restricted from deletion via `has_many :salaries, dependent: :restrict_with_error`
 

@@ -65,6 +65,13 @@ RSpec.describe RecordSalaryChange do
 
       expect(employee.salary_on(Date.new(2024, 5, 1)).amount_minor_units).to eq(8_000_00)
     end
+
+    it 'same-day correction: second call supersedes the first' do
+      call(amount_minor_units: 5_000_00, effective_date: Date.new(2024, 3, 1), reason: 'new_hire')
+      call(amount_minor_units: 5_500_00, effective_date: Date.new(2024, 3, 1), reason: 'correction')
+
+      expect(employee.salary_on(Date.new(2024, 3, 1)).amount_minor_units).to eq(5_500_00)
+    end
   end
 
   describe 'validation failures' do
@@ -94,11 +101,8 @@ RSpec.describe RecordSalaryChange do
     end
 
     it 'does not persist a salary row on validation failure' do
-      expect do
-        call(amount_minor_units: 0)
-      rescue RecordSalaryChange::Error
-        nil
-      end.not_to change(Salary, :count)
+      expect { call(amount_minor_units: 0) }.to raise_error(RecordSalaryChange::Error)
+      expect(Salary.count).to eq(0)
     end
   end
 end

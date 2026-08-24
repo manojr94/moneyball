@@ -108,6 +108,12 @@ RSpec.describe Salary, type: :model do
     it 'raises on destroy!' do
       expect { salary.destroy! }.to raise_error(ActiveRecord::RecordNotDestroyed)
     end
+
+    # Known gap: Salary.delete(id), delete_all, and update_all bypass ActiveRecord
+    # callbacks and therefore bypass the guards above. There is no application code
+    # path that calls these, but a developer who doesn't know the invariant could
+    # reach for them in a rake task or data migration and silently corrupt history.
+    # This matches the documented gap for ExchangeRate in MANUAL_TEST_PLAN M3.0b.
   end
 
   describe '.as_of scope' do

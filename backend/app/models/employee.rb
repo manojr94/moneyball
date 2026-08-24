@@ -29,6 +29,8 @@ class Employee < ApplicationRecord
     update!(status: 'terminated', terminated_on: on_date)
   end
 
+  # One query per call. Callers iterating many employees must use a batch
+  # strategy (see implementation plan §5) rather than calling this in a loop.
   def salary_on(date)
     salaries.as_of(date).first
   end

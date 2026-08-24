@@ -14,5 +14,6 @@ class CreateSalaries < ActiveRecord::Migration[7.1]
     add_index :salaries, %i[employee_id effective_date],
               order: { effective_date: :desc },
               name: 'index_salaries_on_employee_id_and_effective_date'
+    add_index :salaries, :created_by_id
   end
 end
