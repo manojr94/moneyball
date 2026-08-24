@@ -1,6 +1,7 @@
 class Employee < ApplicationRecord
   belongs_to :country, foreign_key: :country_code, primary_key: :code, inverse_of: :employees
   belongs_to :department
+  has_many :salaries, dependent: :restrict_with_error
 
   STATUSES = %w[active inactive terminated].freeze
 
@@ -26,6 +27,16 @@ class Employee < ApplicationRecord
 
   def terminate!(on_date: Date.current)
     update!(status: 'terminated', terminated_on: on_date)
+  end
+
+  # One query per call. Callers iterating many employees must use a batch
+  # strategy (see implementation plan §5) rather than calling this in a loop.
+  def salary_on(date)
+    salaries.as_of(date).first
+  end
+
+  def current_salary
+    salary_on(Date.current)
   end
 
   private

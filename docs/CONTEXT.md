@@ -199,6 +199,60 @@ is paid in USD. Every `Money.new` call in application code must pass an explicit
 argument. USD as default is an initializer requirement, not a signal that USD is
 semantically meaningful as a default salary currency.
 
+## M3 decisions (2026-08-24)
+
+### `monetize` macro skipped on Salary; `#amount` method used instead
+
+`money-rails`' `monetize` macro assumes the storage column is named with a `_cents`
+suffix (e.g. `price_cents` → `price` method). Our column is `amount_minor_units` — the
+name that accurately reflects ISO 4217 semantics (cents is false for JPY and KWD). Using
+`monetize :amount_minor_units, as: :amount, with_currency: :currency` triggers the
+money-rails built-in numericality validator, which calls `Money::Currency.find(currency).subunit_to_unit`
+before our own validations run. Because the validator fires on every save attempt, an
+invalid-currency record raises `NoMethodError` on nil instead of returning a readable
+validation error.
+
+`FxConverter` already constructs `Money` objects manually via `Money.new(minor_units, currency)`.
+`Salary` follows the same pattern: a simple `#amount` method returns the Money object without
+involving the macro's validator machinery. Our own `currency_must_be_known` validation
+produces a clear, user-readable error for unknown currencies.
+
+*Trade-off:* no `amount=` setter or money-rails integration (e.g. `price_in_dollars`
+helpers). Those aren't needed — the app reads and writes `amount_minor_units` directly
+through `RecordSalaryChange`, and FX conversion uses `FxConverter`. If money-rails helpers
+are needed later, the column can be aliased to `amount_cents` via a database view or the
+gem can be configured with a custom column suffix.
+
+### Same-day tiebreaker: later-inserted row (higher `id`) wins
+
+Two salary rows can share an `effective_date` — a realistic scenario when an entry is
+corrected the same day it was made. The `.as_of` scope orders by
+`(effective_date DESC, id DESC)`, so the most recently inserted row wins. This is
+deterministic and stable across reloads, and matches the mental model: the second entry
+supersedes the first.
+
+*Trade-off:* there is no way to distinguish "intentional same-day correction" from
+"duplicate insert". A future UI could present same-date rows as candidates for deduplication.
+No application logic blocks a second insert on the same date — that is intentional, since
+a same-day correction is a valid business operation.
+
+### `created_by_id` stored without FK constraint until M4
+
+The `salaries` table includes `created_by_id` (bigint, nullable) to record which user
+initiated each pay event. The `users` table does not exist until M4, so the FK constraint
+is deferred. The column is nullable so M3 tests and seeds do not require a real user record.
+The FK will be added in M4's migration alongside the users table. An index on `created_by_id`
+is added in M3 so the FK migration in M4 is cheap (no table rewrite needed). M4's migration
+must handle pre-existing rows with phantom `created_by_id` values (e.g. test seeds) before
+enabling the constraint.
+
+### `salary` rows are restricted from deletion via `has_many :salaries, dependent: :restrict_with_error`
+
+Attempting to destroy an employee who has salary records returns a validation error rather
+than cascading the delete. This upholds the "never hard-delete" and "salary rows are
+immutable" invariants together: neither the employee nor their pay history can be silently
+removed.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a

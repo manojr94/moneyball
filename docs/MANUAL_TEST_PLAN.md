@@ -65,6 +65,24 @@ The minor-units decision fails visibly here or nowhere.
 | 1.5 | Enter `0`, a negative, and a non-numeric value | Guard behavior, and whether the error is *readable* |
 | 1.6 | Save a salary, reload the page, compare to what you typed | Round-trip precision loss |
 
+## M3. Salary history (model/service layer — console checks, no API yet)
+
+M3 has no API surface. Manual checks verify the invariants at the Rails console.
+Run `bin/rails c` and source an employee as `e = Employee.first` (or create one).
+
+| # | Check | Catches |
+|---|---|---|
+| M3.1 | `RecordSalaryChange.call(employee: e, amount_minor_units: 8_000_00, currency: 'USD', effective_date: 1.year.ago.to_date, reason: 'new_hire', created_by_id: 1)` — does it return a persisted Salary? | Service raising unexpectedly on valid input |
+| M3.2 | `RecordSalaryChange.call(employee: e, amount_minor_units: 9_000_00, currency: 'USD', effective_date: 3.months.ago.to_date, reason: 'merit', created_by_id: 1)` then `e.salary_on(6.months.ago.to_date)` — does it return the first (lower) salary? | Point-in-time lookup returning wrong row |
+| M3.3 | `e.current_salary` — does it return the second (higher) salary? | `current_salary` not delegating to `salary_on(Date.current)` |
+| M3.4 | `e.salary_on(2.years.ago.to_date)` — does it return `nil`? | Pre-history returning the earliest row instead of nil |
+| M3.5 | `e.salaries.last.update!(amount_minor_units: 1)` — does it raise `ActiveRecord::RecordNotSaved`? | Immutability guard not firing |
+| M3.6 | `e.salaries.last.destroy!` — does it raise `ActiveRecord::RecordNotDestroyed`? | Destroy guard not firing |
+| M3.7 | `RecordSalaryChange.call(employee: e, amount_minor_units: 0, currency: 'USD', effective_date: Date.today, reason: 'merit', created_by_id: 1)` — does it raise `RecordSalaryChange::Error` mentioning "greater than 0"? | Zero-amount guard; no silent zero-salary record persisted |
+| M3.8 | Same as M3.7 but with `currency: 'XYZ'` — does the error mention "currency"? | Unknown-currency guard |
+| M3.9 | Insert two salaries on the same date: call M3.1 again with the same `effective_date`. `e.salary_on(that_date)` — does it return the **later-inserted** row (higher id)? | Same-day tiebreaker determinism |
+| M3.10 | `Salary.where(id: Salary.last.id).update_all(amount_minor_units: 1)` — confirm it **succeeds** (callback bypass). Use `Salary.last.id` not `e.salaries.last.id` — the association cache retains unsaved records from failed service calls with `id: nil`, producing a false zero-row result. This is a documented gap: no application code takes this path, but a future data migration could. | Known scope of the immutability guard — callbacks only, not DB-level |
+
 ## 2. Effective dating
 
 The load-bearing design decision, and the easiest to get subtly wrong.
@@ -82,6 +100,8 @@ The load-bearing design decision, and the easiest to get subtly wrong.
 
 | # | Check | Catches |
 |---|---|---|
+| 3.0a | In the Rails console: `FxConverter.convert(amount_minor_units: 100, from_currency: 'GBP', as_of: Date.today)` with no GBP rate seeded — does it raise `FxConverter::NoRateError` with a message naming the currency and date? | Service returning nil/0 instead of an explicit error; callers silently dropping employees from totals |
+| 3.0b | In the Rails console: attempt `ExchangeRate.last.update!(rate_to_usd: 99)` and `ExchangeRate.last.destroy!` — do both raise? Then attempt `ExchangeRate.where(id: ExchangeRate.last.id).update_all(rate_to_usd: 99)` — confirm it succeeds (this bypass is documented and has no application path, but should be known) | Append-only guard scope — callbacks block ORM mutations; SQL-level bypass is a known gap |
 | 3.1 | Run analytics at two different rate dates. Do the totals actually differ? | Rate date ignored — silently pinned to latest |
 | 3.2 | Run a report dated **before any exchange rate exists** | Undefined behavior at the boundary |
 | 3.3 | A currency with **no rate at all** — does the UI say "cannot convert", or show blank/0? | Silent exclusion from totals, which understates spend |
