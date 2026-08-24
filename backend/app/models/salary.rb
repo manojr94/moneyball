@@ -1,5 +1,6 @@
 class Salary < ApplicationRecord
   belongs_to :employee
+  belongs_to :created_by, class_name: 'User', optional: true
 
   VALID_REASONS = %w[new_hire merit promotion correction role_change].freeze
 

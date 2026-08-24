@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_01_01_000007) do
+ActiveRecord::Schema[7.1].define(version: 2024_01_01_000008) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -18,6 +18,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000007) do
   # Note that some types may not work with other database engines. Be careful if changing database.
   create_enum "employee_status", ["active", "inactive", "terminated"]
   create_enum "region_type", ["na", "latam", "emea", "apac"]
+  create_enum "user_role", ["hr_admin", "viewer"]
 
   create_table "countries", primary_key: "code", id: :string, force: :cascade do |t|
     t.string "name"
@@ -91,8 +92,22 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000007) do
     t.index ["employee_id"], name: "index_salaries_on_employee_id"
   end
 
+  create_table "users", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "password_digest", null: false
+    t.string "name", null: false
+    t.enum "role", default: "viewer", null: false, enum_type: "user_role"
+    t.boolean "active", default: true, null: false
+    t.integer "token_version", default: 0, null: false
+    t.datetime "last_sign_in_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email"], name: "index_users_on_email", unique: true
+  end
+
   add_foreign_key "countries", "pay_zones"
   add_foreign_key "employees", "countries", column: "country_code", primary_key: "code"
   add_foreign_key "employees", "departments"
   add_foreign_key "salaries", "employees"
+  add_foreign_key "salaries", "users", column: "created_by_id"
 end

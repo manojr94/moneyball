@@ -116,6 +116,8 @@ GEM
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     json (2.21.2)
+    jwt (2.10.3)
+      base64
     language_server-protocol (3.17.0.6)
     lint_roller (1.1.0)
     logger (1.7.0)
@@ -318,6 +320,7 @@ DEPENDENCIES
   bootsnap
   debug
   factory_bot_rails
+  jwt (~> 2.8)
   money-rails (~> 1.15)
   pg (~> 1.5)
   puma (>= 5.0)
