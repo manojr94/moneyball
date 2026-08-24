@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_01_01_000006) do
+ActiveRecord::Schema[7.1].define(version: 2024_01_01_000007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -77,7 +77,21 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000006) do
     t.index ["slug"], name: "index_pay_zones_on_slug", unique: true
   end
 
+  create_table "salaries", force: :cascade do |t|
+    t.bigint "employee_id", null: false
+    t.bigint "amount_minor_units", null: false
+    t.string "currency", limit: 3, null: false
+    t.date "effective_date", null: false
+    t.string "reason", null: false
+    t.bigint "created_by_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["employee_id", "effective_date"], name: "index_salaries_on_employee_id_and_effective_date", order: { effective_date: :desc }
+    t.index ["employee_id"], name: "index_salaries_on_employee_id"
+  end
+
   add_foreign_key "countries", "pay_zones"
   add_foreign_key "employees", "countries", column: "country_code", primary_key: "code"
   add_foreign_key "employees", "departments"
+  add_foreign_key "salaries", "employees"
 end
