@@ -81,7 +81,7 @@ Run `bin/rails c` and source an employee as `e = Employee.first` (or create one)
 | M3.7 | `RecordSalaryChange.call(employee: e, amount_minor_units: 0, currency: 'USD', effective_date: Date.today, reason: 'merit', created_by_id: 1)` — does it raise `RecordSalaryChange::Error` mentioning "greater than 0"? | Zero-amount guard; no silent zero-salary record persisted |
 | M3.8 | Same as M3.7 but with `currency: 'XYZ'` — does the error mention "currency"? | Unknown-currency guard |
 | M3.9 | Insert two salaries on the same date: call M3.1 again with the same `effective_date`. `e.salary_on(that_date)` — does it return the **later-inserted** row (higher id)? | Same-day tiebreaker determinism |
-| M3.10 | `Salary.where(id: e.salaries.last.id).update_all(amount_minor_units: 1)` — confirm it **succeeds** (callback bypass). This is a documented gap: no application code takes this path, but a future data migration could. | Known scope of the immutability guard — callbacks only, not DB-level |
+| M3.10 | `Salary.where(id: Salary.last.id).update_all(amount_minor_units: 1)` — confirm it **succeeds** (callback bypass). Use `Salary.last.id` not `e.salaries.last.id` — the association cache retains unsaved records from failed service calls with `id: nil`, producing a false zero-row result. This is a documented gap: no application code takes this path, but a future data migration could. | Known scope of the immutability guard — callbacks only, not DB-level |
 
 ## 2. Effective dating
 
