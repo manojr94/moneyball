@@ -10,7 +10,7 @@ import { formatMoney } from '../utils/money'
 const GROUP_BY_OPTIONS = [
   { value: 'region', label: 'Region' },
   { value: 'department', label: 'Department' },
-  { value: 'job_level', label: 'Level' },
+  { value: 'level', label: 'Level' },
   { value: 'country', label: 'Country' },
 ]
 
@@ -43,11 +43,11 @@ function PayTable({ groups }) {
           <tr key={g.key}>
             <td>{g.label ?? g.key}</td>
             <td>{g.headcount}</td>
-            <td>{formatMoney(g.min, REPORTING_CURRENCY)}</td>
-            <td>{formatMoney(g.median, REPORTING_CURRENCY)}</td>
-            <td>{formatMoney(g.avg, REPORTING_CURRENCY)}</td>
-            <td>{formatMoney(g.max, REPORTING_CURRENCY)}</td>
-            <td>{formatMoney(g.total_spend, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.min_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.median_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.avg_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.max_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.total_spend_usd_minor_units, REPORTING_CURRENCY)}</td>
           </tr>
         ))}
       </tbody>
@@ -66,7 +66,7 @@ function CompaTable({ groups }) {
         <tr>
           <th>Group</th>
           <th>Headcount</th>
-          <th>Median compa-ratio</th>
+          <th>Avg compa-ratio</th>
           <th>Below band</th>
           <th>Within band</th>
           <th>Above band</th>
@@ -78,11 +78,11 @@ function CompaTable({ groups }) {
           <tr key={g.key ?? g.label}>
             <td>{g.label ?? g.key}</td>
             <td>{g.headcount}</td>
-            <td>{g.median_compa_ratio != null ? Number(g.median_compa_ratio).toFixed(2) : '—'}</td>
+            <td>{g.avg_compa_ratio != null ? Number(g.avg_compa_ratio).toFixed(2) : '—'}</td>
             <td>{g.below ?? '—'}</td>
             <td>{g.within ?? '—'}</td>
             <td>{g.above ?? '—'}</td>
-            <td>{g.no_band ?? '—'}</td>
+            <td>{g.unresolved ?? '—'}</td>
           </tr>
         ))}
       </tbody>
@@ -194,6 +194,7 @@ export function AnalyticsDashboard() {
             <input
               type="date"
               aria-label="As of date"
+              max={today()}
               value={asOf}
               onChange={(e) => setAsOf(e.target.value)}
             />
@@ -203,6 +204,7 @@ export function AnalyticsDashboard() {
             <input
               type="date"
               aria-label="Rate date"
+              max={today()}
               value={rateDate}
               onChange={(e) => setRateDate(e.target.value)}
             />

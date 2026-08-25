@@ -19,7 +19,7 @@ async function request(path, options = {}) {
   const body = await res.json()
 
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && localStorage.getItem('token')) {
       localStorage.removeItem('token')
       window.location.href = '/login'
       return null

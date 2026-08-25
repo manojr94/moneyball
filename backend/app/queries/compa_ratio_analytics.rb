@@ -10,7 +10,8 @@ class CompaRatioAnalytics
     'level' => 'employees.job_level'
   }.freeze
 
-  LABEL_SOURCE = { 'country' => :country, 'department' => :department }.freeze
+  LABEL_SOURCE = { 'country' => :country, 'department' => :department, 'region' => :region }.freeze
+  REGION_LABELS = { 'na' => 'NA', 'latam' => 'LATAM', 'emea' => 'EMEA', 'apac' => 'APAC' }.freeze
 
   FILTERS = {
     region: 'countries.region',
@@ -206,7 +207,7 @@ class CompaRatioAnalytics
     key = row['group_key'].to_s
     ratio = row['avg_compa_ratio']
     { key: key,
-      label: label_lookup[key] || key,
+      label: label_lookup[key].presence || key.presence || 'Unconfigured',
       headcount: row['headcount'].to_i,
       covered_headcount: row['covered_headcount'].to_i,
       avg_compa_ratio: ratio ? format('%.4f', ratio.to_f) : nil,
@@ -222,6 +223,7 @@ class CompaRatioAnalytics
       case LABEL_SOURCE[@group_by]
       when :country    then Country.pluck(:code, :name).to_h
       when :department then Department.pluck(:id, :name).to_h { |id, n| [id.to_s, n] }
+      when :region     then REGION_LABELS
       else                  {}
       end
   end

@@ -71,7 +71,7 @@ describe('AnalyticsDashboard', () => {
   it('switches to compa-ratio tab', async () => {
     analyticsApi.payAnalytics.mockResolvedValue({ groups: [], meta: {} })
     analyticsApi.compaRatioAnalytics.mockResolvedValue({
-      groups: [{ key: 'na', label: 'NA', headcount: 5, median_compa_ratio: '0.95' }],
+      groups: [{ key: 'na', label: 'NA', headcount: 5, avg_compa_ratio: '0.95' }],
     })
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: /compa-ratio/i }))

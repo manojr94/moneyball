@@ -11,7 +11,8 @@ class PayAnalytics
     'level' => 'employees.job_level'
   }.freeze
 
-  LABEL_SOURCE = { 'country' => :country, 'department' => :department }.freeze
+  LABEL_SOURCE = { 'country' => :country, 'department' => :department, 'region' => :region }.freeze
+  REGION_LABELS = { 'na' => 'NA', 'latam' => 'LATAM', 'emea' => 'EMEA', 'apac' => 'APAC' }.freeze
 
   FILTERS = {
     region: 'countries.region',
@@ -143,9 +144,9 @@ class PayAnalytics
     end.join(', ')
   end
 
-  def present_group(row)
+  def present_group(row) # rubocop:disable Metrics/AbcSize
     key = row['group_key'].to_s
-    { key: key, label: label_lookup[key] || key,
+    { key: key, label: label_lookup[key].presence || key.presence || 'Unconfigured',
       headcount: row['headcount'].to_i,
       total_spend_usd_minor_units: row['total_spend_usd_minor_units'].to_i,
       min_usd_minor_units: row['min_usd_minor_units'].to_i,
@@ -159,6 +160,7 @@ class PayAnalytics
       case LABEL_SOURCE[@group_by]
       when :country    then Country.pluck(:code, :name).to_h
       when :department then Department.pluck(:id, :name).to_h { |id, n| [id.to_s, n] }
+      when :region     then REGION_LABELS
       else                  {}
       end
   end
