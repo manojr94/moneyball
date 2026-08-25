@@ -220,14 +220,28 @@ non-goal. Admins set passwords directly.
 | **M7** | Analytics | Headcount, spend, min/median/avg/max grouped by region/country/department/level, point-in-time, **explicit rate date** | Median correctness (even/odd/single), empty groups, mixed currencies, region rollup equals sum of its countries, **same data at two rate dates gives different totals**, historical date |
 | **M8** | Bands, compa-ratio & coverage | `salary_bands` (zone-scoped), `BandResolver`, compa-ratio + distribution buckets, **band coverage report** | **No matching band**, country in no pay zone, band currency ≠ salary currency, band changed mid-period, boundary values (exactly min/mid/max), coverage report lists every uncovered title/level/zone |
 | **M9** | Frontend | Employee list, detail + salary timeline, raise form, analytics dashboard, band view | Component + interaction tests, loading/error/empty states |
-| **M10** | Seed & performance | 10k employees / ~120k salary rows, benchmark harness, index tuning | Documented query timings against the <500ms target |
-| **M11** | Deploy & docs | Dockerfile, hosted demo, README with architecture + decisions, ADRs | Smoke test against the deployed instance |
+| **M10** | Tailwind & UX polish | Tailwind + shadcn/ui setup, strip `index.css`, restyle all components in one pass, sortable column headers, analytics filter-bar tooltips, expanded "currencies excluded" warning, band-coverage explanatory copy | Existing component tests stay green under the restyle; no new behaviour beyond sortable headers |
+| **M11** | Seed & performance | 10k employees / ~120k salary rows, benchmark harness, index tuning, streaming CSV import + batch inserts (deferred from M6) | Documented query timings against the <500ms target; 10k-row import stays under memory/time budget |
+| **M11.5** | Cleanup & follow-ups | `GET /departments` endpoint + department filter dropdown on employee list; extract shared analytics grouping into `Analytics::GroupingSupport` concern (dedupes `PayAnalytics` / `CompaRatioAnalytics`) | Filter-combination specs for department; existing analytics specs unchanged after refactor |
+| **M12** | Deploy & docs | Dockerfile, hosted demo, README with architecture + decisions, ADRs, TypeScript migration (deferred from M9) | Smoke test against the deployed instance |
 
 **Sequencing rationale.** M2 and M3 precede everything because the money and history
 primitives are what every later feature reads. Auth (M4) lands before the API surface
 (M5) so no endpoint is ever written unprotected and retrofitted. Analytics (M7) precedes
-bands (M8) because compa-ratio reuses its grouping and filtering layer. The 10k seed
-(M10) comes after the query paths exist so benchmarks measure something real.
+bands (M8) because compa-ratio reuses its grouping and filtering layer. Tailwind (M10)
+lands before the 10k seed so the polish pass happens against the current small dataset
+where visual regressions are easy to spot. The 10k seed (M11) comes after the query
+paths *and* the polish pass exist, so benchmarks measure something real and the UI is
+stable enough that perf work is not chasing a moving target.
+
+**M10 scope, explicitly.** *In:* Tailwind + shadcn/ui install and config; strip
+`index.css`; restyle every existing component; sortable column headers on the employee
+list; tooltips/inline help on the analytics filter bar ("as of", "rate date"); the
+"currencies excluded" warning gets human-readable context ("N employees excluded — no
+XCD rate on file for this date"); a short explanatory paragraph above the band-coverage
+table describing what "uncovered" means and what action to take. *Out:* department
+filter, analytics refactor (both → M11.5); any new backend endpoints beyond what M9
+already ships; TypeScript migration (→ M12).
 
 ---
 
@@ -278,16 +292,17 @@ Each is a documented step with a benchmark, not a premature optimization.
 
 ## 6. Branching & commit conventions
 
-**One branch per milestone, one PR per branch** — twelve in total, matching §3. Each
+**One branch per milestone, one PR per branch** — thirteen in total, matching §3. Each
 milestone was scoped to be independently testable and independently valuable, which is
 exactly the property that makes a good PR boundary. Branches are named for their
 milestone so the sequence is self-evident:
 
 ```
-feat/m00-tooling      feat/m04-auth          feat/m08-bands
-feat/m01-geography    feat/m05-employee-api  feat/m09-frontend
-feat/m02-history      feat/m06-import        feat/m10-performance
-feat/m03-audit        feat/m07-analytics     feat/m11-deploy
+feat/m00-tooling      feat/m05-employee-api  feat/m10-tailwind
+feat/m01-geography    feat/m06-import        feat/m11-performance
+feat/m02-history      feat/m07-analytics     feat/m11.5-cleanup
+feat/m03-audit        feat/m08-bands         feat/m12-deploy
+feat/m04-auth         feat/m09-frontend
 ```
 
 **`main` is protected**: no direct pushes, PR with green CI required to merge. The one
