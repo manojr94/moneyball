@@ -4,7 +4,9 @@ Rails.application.routes.draw do
   resource :session, only: %i[create destroy]
   get '/me', to: 'me#show'
 
-  resources :employees, only: %i[index show create update]
+  resources :employees, only: %i[index show create update] do
+    resources :salaries, only: %i[index create]
+  end
   resources :salary_bands, only: %i[index create]
   post '/imports/employees', to: 'employee_imports#create'
   get '/analytics/pay',           to: 'analytics#pay'
