@@ -751,6 +751,41 @@ state, money formatting) are covered by native browser APIs, React built-ins, an
 `Intl.NumberFormat` respectively. Keeping the dependency surface small is a deliberate
 choice for a portfolio project.
 
+### Deferred to future milestones (discovered during M9 manual QA)
+
+The following items were identified during the M9 manual test walkthrough but deferred to
+keep this PR focused:
+
+- **Tailwind / component library (high priority):** Plain CSS with native browser controls
+  has a hard ceiling on polish. Agreed to add Tailwind + shadcn/ui in a dedicated milestone
+  (`feat/m10-tailwind`): strip `index.css`, restyle all components in one pass. Avoids
+  mid-feature CSS conflicts.
+- **Sortable column headers:** The sort-by dropdown works but is not intuitive. Standard
+  pattern is clickable column headers with an arrow indicator. Defer to Tailwind milestone
+  where table components will be rebuilt.
+- **Department filter on employee list:** `EmployeeQuery` already supports `department_id`
+  filtering but the frontend has no UI for it. Sorting by department name via JOIN was
+  ruled out (no clean keyset cursor index); a filter dropdown is the right UX. Requires a
+  `GET /departments` endpoint. Defer to next feature milestone.
+- **`PayAnalytics` / `CompaRatioAnalytics` duplication:** Both classes share `LABEL_SOURCE`,
+  `REGION_LABELS`, `label_lookup`, and filter/group infrastructure. Extract to an
+  `Analytics::GroupingSupport` concern. Defer to cleanup milestone — behavior is correct,
+  this is pure refactor.
+- **Analytics filter bar UX (Tailwind milestone):** "As of" and "Rate date" are domain
+  jargon. Need tooltips or inline help text explaining what each controls ("snapshot date
+  for headcount / salary", "exchange rate conversion date"). The feature is powerful but
+  the labels alone don't communicate it. Invest in this when the component library lands.
+- **"Currencies excluded" warning needs more context (Tailwind milestone):** The current
+  warning ("Currencies excluded (no rate): XCD") is technically correct but not actionable
+  for an HR manager. Should explain what it means ("1 employee excluded — no XCD exchange
+  rate on file for this date") and ideally link to where rates can be added. Invest in
+  this alongside the filter bar UX improvements.
+- **Band coverage tab needs explanatory copy (Tailwind milestone):** The table is a TODO
+  list for the compensation team — "these title/level/zone combinations have active
+  employees but no salary band." That is not obvious from the column headers alone. Add a
+  short description above the table explaining what "uncovered" means and what action the
+  HR team should take (create a band for that combination).
+
 ---
 
 ## Working agreements

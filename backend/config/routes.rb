@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   end
   resources :salary_bands, only: %i[index create]
   post '/imports/employees', to: 'employee_imports#create'
+  get '/currencies', to: 'currencies#index'
   get '/analytics/pay',           to: 'analytics#pay'
   get '/analytics/compa_ratio',   to: 'analytics#compa_ratio'
   get '/analytics/band_coverage', to: 'analytics#band_coverage'

@@ -8,7 +8,6 @@ import { EmptyState } from '../components/EmptyState'
 const SORT_OPTIONS = [
   { value: 'last_name', label: 'Last name' },
   { value: 'hire_date', label: 'Hire date' },
-  { value: 'employee_number', label: 'Employee number' },
 ]
 
 const STATUS_OPTIONS = ['', 'active', 'inactive', 'terminated']
@@ -78,29 +77,37 @@ export function EmployeeListPage() {
       </div>
 
       <div className="filters">
-        <select
-          aria-label="Status filter"
-          value={filters.status}
-          onChange={(e) => handleFilterChange('status', e.target.value)}
-        >
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {s === '' ? 'All statuses' : s}
-            </option>
-          ))}
-        </select>
+        <div className="field-inline">
+          <label htmlFor="status-filter">Status</label>
+          <select
+            id="status-filter"
+            aria-label="Status filter"
+            value={filters.status}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+          >
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s === '' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <select
-          aria-label="Sort by"
-          value={filters.sort}
-          onChange={(e) => handleFilterChange('sort', e.target.value)}
-        >
-          {SORT_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        <div className="field-inline">
+          <label htmlFor="sort-by">Sort by</label>
+          <select
+            id="sort-by"
+            aria-label="Sort by"
+            value={filters.sort}
+            onChange={(e) => handleFilterChange('sort', e.target.value)}
+          >
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && <ErrorMessage message={error} />}
@@ -119,6 +126,7 @@ export function EmployeeListPage() {
                 <th>Department</th>
                 <th>Title / Level</th>
                 <th>Country</th>
+                <th>Hire date</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -136,6 +144,7 @@ export function EmployeeListPage() {
                     {e.job_title} · {e.job_level}
                   </td>
                   <td>{e.country_code}</td>
+                  <td>{e.hire_date}</td>
                   <td>
                     <span className={`status-badge status-${e.status}`}>{e.status}</span>
                   </td>

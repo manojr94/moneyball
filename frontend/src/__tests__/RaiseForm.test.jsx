@@ -4,8 +4,10 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { RaiseForm } from '../components/RaiseForm'
 import { AuthContext } from '../contexts/AuthContext'
 import * as employeesApi from '../api/employees'
+import * as currenciesApi from '../api/currencies'
 
 vi.mock('../api/employees')
+vi.mock('../api/currencies')
 
 const adminUser = { id: 1, name: 'Admin', role: 'hr_admin' }
 const viewerUser = { id: 2, name: 'Viewer', role: 'viewer' }
@@ -21,13 +23,14 @@ function renderForm({ user = adminUser, onSuccess = vi.fn(), onCancel = vi.fn() 
 describe('RaiseForm', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    currenciesApi.listCurrencies.mockResolvedValue(['EUR', 'JPY', 'USD'])
   })
 
-  it('renders the form fields for admin', () => {
+  it('renders the form fields for admin', async () => {
     renderForm()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByLabelText(/amount/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/currency/i)).toBeInTheDocument()
+    expect(await screen.findByLabelText(/currency/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/effective date/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/reason/i)).toBeInTheDocument()
   })
@@ -41,10 +44,9 @@ describe('RaiseForm', () => {
     employeesApi.createSalary.mockResolvedValue({ id: 99 })
     const onSuccess = vi.fn()
     renderForm({ onSuccess })
-    await userEvent.clear(screen.getByLabelText(/amount/i))
     await userEvent.type(screen.getByLabelText(/amount/i), '80000')
-    await userEvent.clear(screen.getByLabelText(/currency/i))
-    await userEvent.type(screen.getByLabelText(/currency/i), 'USD')
+    await screen.findByLabelText(/currency/i)
+    await userEvent.selectOptions(screen.getByLabelText(/currency/i), 'USD')
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(onSuccess).toHaveBeenCalled())
     expect(employeesApi.createSalary).toHaveBeenCalledWith(

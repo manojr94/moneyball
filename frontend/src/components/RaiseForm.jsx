@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { createSalary } from '../api/employees'
+import { listCurrencies } from '../api/currencies'
 import { majorToMinor } from '../utils/money'
 import { useAuth } from '../contexts/AuthContext'
+import { useApi } from '../hooks/useApi'
 
 const REASONS = ['merit', 'promotion', 'correction', 'role_change']
 
@@ -16,6 +18,9 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
   const [reason, setReason] = useState('merit')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+
+  const fetchCurrencies = useCallback(() => listCurrencies(), [])
+  const { data: currencies } = useApi(fetchCurrencies, [])
 
   if (!isAdmin) return null
 
@@ -65,17 +70,18 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
             </div>
             <div className="field">
               <label htmlFor="raise-currency">Currency</label>
-              <input
+              <select
                 id="raise-currency"
-                type="text"
-                maxLength={3}
-                pattern="[A-Z]{3}"
-                title="3-letter ISO 4217 currency code (e.g. USD, EUR, JPY)"
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                onChange={(e) => setCurrency(e.target.value)}
                 required
-                placeholder="USD"
-              />
+              >
+                {(currencies ?? ['USD']).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="field">
@@ -97,7 +103,7 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
             >
               {REASONS.map((r) => (
                 <option key={r} value={r}>
-                  {r}
+                  {r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' ')}
                 </option>
               ))}
             </select>
