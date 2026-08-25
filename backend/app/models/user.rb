@@ -3,8 +3,10 @@ class User < ApplicationRecord
 
   ROLES = %w[hr_admin viewer].freeze
 
+  before_validation { self.email = email&.downcase }
+
   validates :email, presence: true,
-                    uniqueness: { case_sensitive: false },
+                    uniqueness: true,
                     format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :name, presence: true
   validates :role, inclusion: { in: ROLES }

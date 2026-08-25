@@ -14,7 +14,7 @@ class AddUsersAndAuth < ActiveRecord::Migration[7.1]
       t.timestamps
     end
 
-    add_index :users, :email, unique: true
+    add_index :users, 'LOWER(email)', unique: true, name: 'index_users_on_lower_email'
 
     # Nullify phantom created_by_id values recorded before users existed,
     # then enforce the foreign key constraint going forward.
@@ -26,7 +26,7 @@ class AddUsersAndAuth < ActiveRecord::Migration[7.1]
 
   def down
     remove_foreign_key :salaries, column: :created_by_id
-    drop_table :users
+    drop_table :users, force: :cascade
     execute "DROP TYPE user_role;"
   end
 end

@@ -102,7 +102,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000008) do
     t.datetime "last_sign_in_at", precision: nil
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["email"], name: "index_users_on_email", unique: true
+    t.index "lower((email)::text)", name: "index_users_on_lower_email", unique: true
   end
 
   add_foreign_key "countries", "pay_zones"

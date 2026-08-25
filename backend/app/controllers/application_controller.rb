@@ -15,8 +15,8 @@ class ApplicationController < ActionController::API
 
     payload = AuthToken.decode(token)
     @current_user = verified_user(payload)
-  rescue AuthToken::InvalidTokenError => e
-    render json: { error: e.message }, status: :unauthorized
+  rescue AuthToken::InvalidTokenError
+    render json: { error: 'invalid or expired token' }, status: :unauthorized
   end
 
   def verified_user(payload)
