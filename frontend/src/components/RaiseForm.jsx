@@ -8,6 +8,9 @@ import { useApi } from '../hooks/useApi'
 
 const REASONS = ['merit', 'promotion', 'correction', 'role_change']
 
+const inputCls =
+  'w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white'
+
 export function RaiseForm({ employeeId, onSuccess, onCancel }) {
   const { user } = useAuth()
   const isAdmin = user?.role === 'hr_admin'
@@ -45,18 +48,25 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
   }
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Record salary change">
-      <div className="modal">
-        <h3>Record salary change</h3>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Record salary change"
+    >
+      <div className="w-full max-w-md rounded-xl bg-white shadow-xl border border-slate-200 p-6">
+        <h3 className="text-base font-semibold text-slate-900 mb-4">Record salary change</h3>
         {error && (
-          <div className="error-message" role="alert">
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800" role="alert">
             {error}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="raise-form">
-          <div className="field-row">
-            <div className="field">
-              <label htmlFor="raise-amount">Amount (major units)</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="raise-amount" className="block text-sm font-medium text-slate-700 mb-1">
+                Amount (major units)
+              </label>
               <input
                 id="raise-amount"
                 type="number"
@@ -66,15 +76,19 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
                 onChange={(e) => setAmount(e.target.value)}
                 required
                 placeholder="e.g. 80000"
+                className={inputCls}
               />
             </div>
-            <div className="field">
-              <label htmlFor="raise-currency">Currency</label>
+            <div>
+              <label htmlFor="raise-currency" className="block text-sm font-medium text-slate-700 mb-1">
+                Currency
+              </label>
               <select
                 id="raise-currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 required
+                className={inputCls}
               >
                 {(currencies ?? ['USD']).map((c) => (
                   <option key={c} value={c}>
@@ -84,22 +98,28 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
               </select>
             </div>
           </div>
-          <div className="field">
-            <label htmlFor="raise-effective-date">Effective date</label>
+          <div>
+            <label htmlFor="raise-effective-date" className="block text-sm font-medium text-slate-700 mb-1">
+              Effective date
+            </label>
             <input
               id="raise-effective-date"
               type="date"
               value={effectiveDate}
               onChange={(e) => setEffectiveDate(e.target.value)}
               required
+              className={inputCls}
             />
           </div>
-          <div className="field">
-            <label htmlFor="raise-reason">Reason</label>
+          <div>
+            <label htmlFor="raise-reason" className="block text-sm font-medium text-slate-700 mb-1">
+              Reason
+            </label>
             <select
               id="raise-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
+              className={inputCls}
             >
               {REASONS.map((r) => (
                 <option key={r} value={r}>
@@ -108,11 +128,19 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
               ))}
             </select>
           </div>
-          <div className="form-actions">
-            <button type="button" className="btn" onClick={onCancel}>
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+            >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
               {submitting ? 'Saving…' : 'Save'}
             </button>
           </div>

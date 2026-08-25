@@ -11,28 +11,52 @@ export function Nav() {
   }
 
   return (
-    <nav className="nav">
-      <div className="nav-brand">Moneyball</div>
-      <ul className="nav-links">
+    <nav className="bg-slate-900 text-white h-14 flex items-center gap-8 px-6 shrink-0">
+      <div className="font-bold text-base text-indigo-300 whitespace-nowrap">Moneyball</div>
+      <ul className="flex gap-1 flex-1 list-none m-0 p-0">
         <li>
-          <NavLink to="/employees" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink
+            to="/employees"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-white bg-slate-700 px-3 py-1.5 rounded text-sm font-medium'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors'
+            }
+          >
             Employees
           </NavLink>
         </li>
         <li>
-          <NavLink to="/analytics" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink
+            to="/analytics"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-white bg-slate-700 px-3 py-1.5 rounded text-sm font-medium'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors'
+            }
+          >
             Analytics
           </NavLink>
         </li>
         <li>
-          <NavLink to="/bands" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink
+            to="/bands"
+            className={({ isActive }) =>
+              isActive
+                ? 'text-white bg-slate-700 px-3 py-1.5 rounded text-sm font-medium'
+                : 'text-slate-300 hover:text-white hover:bg-slate-700 px-3 py-1.5 rounded text-sm transition-colors'
+            }
+          >
             Bands
           </NavLink>
         </li>
       </ul>
-      <div className="nav-user">
+      <div className="flex items-center gap-4 text-sm text-slate-300">
         <span>{user?.name}</span>
-        <button onClick={handleLogout} className="btn-link">
+        <button
+          onClick={handleLogout}
+          className="text-slate-300 hover:text-white underline underline-offset-2 transition-colors"
+        >
           Sign out
         </button>
       </div>
