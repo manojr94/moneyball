@@ -383,6 +383,52 @@ The SPA runs on `:5173` against the API on `:3000`. Start both servers before te
 | M9.32 | Open band shows "open" in the "To" column | Not null or blank |
 | M9.33 | Amounts formatted with correct decimals | JPY bands have no decimal; KWD have 3 |
 
+## 8.5. M10 Tailwind & UX polish
+
+### M10.1 Visual restyle
+
+| # | Check | What to look for |
+|---|---|---|
+| M10.1 | All pages load without broken layout | No unstyled HTML, no layout overflow |
+| M10.2 | Nav appears dark with indigo brand text | Moneyball in indigo-300, links highlight on active route |
+| M10.3 | Login page centered card | Form appears in a white card on a slate-50 background |
+| M10.4 | Status badges correct colours | Active = green, Inactive = yellow, Terminated = red |
+| M10.5 | Tables have hover row highlight | Row background changes on hover |
+
+### M10.2 Sortable column headers
+
+| # | Check | What to look for |
+|---|---|---|
+| M10.6 | Employee list shows clickable Number, Name, Hire date headers | ChevronUp appears on active sort column in indigo |
+| M10.7 | Click "Name" header → list re-sorts by last name | First row should be alphabetically first |
+| M10.8 | Click "Hire date" header → list re-sorts by hire date | Oldest hire appears first |
+| M10.9 | Click "Number" header → list re-sorts by employee number | EMP001 appears first |
+| M10.10 | ChevronUp hidden on non-active headers until hover | Non-active headers show icon only on hover |
+
+### M10.3 Analytics filter bar tooltips
+
+| # | Check | What to look for |
+|---|---|---|
+| M10.11 | Hover the ⓘ next to "As of" → tooltip appears | Text explains this is the salary snapshot date |
+| M10.12 | Hover the ⓘ next to "Rate date" → tooltip appears | Text explains FX conversion date and rate-date sensitivity |
+| M10.13 | Tooltips dismiss on mouse-out | No stuck tooltips |
+
+### M10.4 Currencies excluded warning
+
+| # | Check | What to look for |
+|---|---|---|
+| M10.14 | With a missing rate: warning shows count + currency + date | "1 currency excluded — no exchange rate on file for YYYY-MM-DD: XCD" |
+| M10.15 | Warning explains employees are omitted from totals | Actionable context, not just the currency code |
+| M10.16 | No warning when all currencies have rates | Warning block absent entirely |
+
+### M10.5 Band coverage explanatory copy
+
+| # | Check | What to look for |
+|---|---|---|
+| M10.17 | Band coverage tab shows explanatory paragraph above table | Paragraph present before the table |
+| M10.18 | Paragraph explains what "uncovered" means and what to do | Mentions "no salary band", "add a salary band" or equivalent |
+| M10.19 | "All combinations covered" message still shows when table is empty | Not replaced by paragraph alone |
+
 ## 9. Cross-feature scenarios
 
 The seams. Run these end-to-end in one sitting.

@@ -527,11 +527,11 @@ Five findings from the M6 review (PR #10) were addressed before merge:
   `alice@x.com` would both persist. Downcasing on ingest keeps in-file
   dedupe, persistence, and the DB check aligned. Two specs added: mixed-case
   in-file, and mixed-case across imports.
-- **Stream + batch deferred to M10** — the plan's §risks entry ("Stream rows;
+- **Stream + batch deferred to M11** — the plan's §risks entry ("Stream rows;
   batch inserts; never load the whole sheet") is not yet honoured; `CSV.parse`
   loads the whole table and each row inserts individually. Manual test M6.8
-  (<30s, <500 MB RSS for 10k rows) is the guard until M10 revisits it as an
-  automated benchmark. Deferring rather than doing it now because streaming
+  (<30s, <500 MB RSS for 10k rows) is the guard until M11 revisits it as an
+  automated benchmark. (Renumbered from M10 when Tailwind took the M10 slot.) Deferring rather than doing it now because streaming
   changes the header-validation contract (headers arrive with the first row,
   not up-front) and batch inserts bypass the per-row validations that this
   service relies on.
@@ -722,8 +722,9 @@ The scaffold used JSX and `vite.config.js` without TypeScript. The implementatio
 mentions TypeScript in the architecture diagram but the existing test infrastructure
 (Vitest + RTL) and build config all target JSX. Adding TypeScript would require a new
 `tsconfig.json`, converting all files to `.tsx`/`.ts`, and resolving type errors across the
-codebase — a project-wide change orthogonal to delivering UI behaviour. Deferred to M11
+codebase — a project-wide change orthogonal to delivering UI behaviour. Deferred to M12
 (documentation/deploy cleanup), where a TypeScript migration can be done cleanly in one pass.
+(Renumbered from M11 when Tailwind took the M10 slot and Deploy shifted to M12.)
 
 ### `AuthContext` exported alongside `AuthProvider` for testability
 
@@ -785,6 +786,32 @@ keep this PR focused:
   employees but no salary band." That is not obvious from the column headers alone. Add a
   short description above the table explaining what "uncovered" means and what action the
   HR team should take (create a band for that combination).
+
+---
+
+## M10 decisions (2026-08-26)
+
+### Tailwind v3 + Radix UI (not shadcn CLI)
+
+Installed Tailwind CSS v3 with PostCSS/autoprefixer via `npm install -D tailwindcss postcss autoprefixer`. shadcn/ui was not wired up via its CLI because the project is JSX (no TypeScript), and the CLI assumes a TypeScript project. Instead the specific Radix primitive we needed (`@radix-ui/react-tooltip`) was installed directly, along with `clsx` and `tailwind-merge` for the `cn()` merge utility. This is the pattern shadcn uses internally and gives the same DX without requiring the CLI's assumptions.
+
+`tailwind.config.js` and `postcss.config.js` added to `frontend/`. Content paths cover `./src/**/*.{js,jsx}`.
+
+### `index.css` stripped to Tailwind directives + status-badge classes
+
+The original `index.css` (515 lines of hand-rolled CSS) was replaced with `@tailwind base/components/utilities` directives. The only retained class-based styles are `.status-badge`, `.status-active`, `.status-inactive`, `.status-terminated` — these are defined in `@layer components` using `@apply` so they compose with Tailwind, and they must remain named classes because the `EmployeeListPage` test asserts `.classList.contains('status-badge')` and `.toHaveClass('status-active')`.
+
+### `TooltipProvider` placed in `AnalyticsDashboard`, not only in `App`
+
+The Radix `TooltipProvider` must wrap any `Tooltip` usage. It lives in `App.jsx` for the live app, and also directly inside `AnalyticsDashboard`'s render for component tests that render the page in isolation (without the full app tree). Nested providers are safe with Radix; the inner provider takes precedence, which is fine here.
+
+### Sortable column headers replace sort-by dropdown
+
+The "Sort by" dropdown (`last_name` / `hire_date`) was removed and replaced with clickable column headers on Number, Name, and Hire date columns (matching the three fields the backend's `EmployeeQuery::SORT_COLUMNS` already supports). The active sort column gets a `ChevronUp` icon (indigo, visible); inactive sortable columns show it only on hover. No direction toggle was added — the backend sorts ASC only and changing that would require a `sort_dir` param and cursor redesign; the visual indicator communicates which column is the sort key without overpromising direction control.
+
+### `defaultProps` on function components removed
+
+React 18 deprecates `defaultProps` on function components. The three analytics sub-tables (`PayTable`, `CompaTable`, `BandCoverageTable`) were updated to use JS default parameters instead (`{ groups = [] }`, `{ data = null }`). No behavior change.
 
 ---
 
