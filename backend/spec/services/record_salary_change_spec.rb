@@ -10,7 +10,6 @@ RSpec.describe RecordSalaryChange do
       currency: 'USD',
       effective_date: Date.new(2024, 1, 1),
       reason: 'new_hire',
-      created_by_id: 42,
       **overrides
     )
   end
@@ -41,8 +40,9 @@ RSpec.describe RecordSalaryChange do
     end
 
     it 'records the created_by_id' do
-      result = call(created_by_id: 99)
-      expect(result.created_by_id).to eq(99)
+      user = create(:user)
+      result = call(created_by_id: user.id)
+      expect(result.created_by_id).to eq(user.id)
     end
 
     it 'accepts created_by_id: nil' do

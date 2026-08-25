@@ -253,6 +253,74 @@ than cascading the delete. This upholds the "never hard-delete" and "salary rows
 immutable" invariants together: neither the employee nor their pay history can be silently
 removed.
 
+## M4 decisions (2026-08-25)
+
+### JWT over session cookie
+
+The implementation plan's architecture diagram mentions "session cookie", but the data
+model explicitly includes `token_version` (an integer counter on `users`) for revocation.
+`token_version` is a JWT pattern: each token embeds the version at encode time, and the
+server rejects a token whose embedded version no longer matches the user's current counter.
+This does not apply to cookie sessions, where revocation simply deletes the session row.
+
+JWT was chosen because:
+- `token_version` in the schema signals JWT semantics
+- The API is consumed by a React SPA where a cookie requires extra CORS configuration
+- Tokens are stateless — most requests validate without a DB read (only the payload user_id
+  lookup is required; no separate session table)
+
+*Trade-off:* JWTs cannot be invalidated mid-lifetime except via `token_version`. A bump to
+`token_version` (sign-out, deactivation) invalidates all outstanding tokens for that user
+immediately. The 24-hour expiry is short enough that this window is acceptable for v1.
+
+### `jwt` gem added
+
+`jwt` (~> 2.8) is the only new production dependency in M4. `bcrypt` was already present.
+`has_secure_password` handles password verification; `jwt` handles token encode/decode.
+No other auth library is needed given the two-role model.
+
+### Pundit-style policies without the Pundit gem
+
+The implementation plan specifies "Pundit-style policies". M4 implements the pattern
+without adding the Pundit gem:
+
+- `ApplicationPolicy` follows Pundit's interface: `initialize(user, record)`, `read?`,
+  `write?` predicates.
+- `ApplicationController#authorize!(action)` raises `NotAuthorizedError` if the policy
+  denies the action; `rescue_from` renders 403 and halts the action chain.
+- Raising rather than rendering inside `authorize!` is the key: a `render` call inside a
+  helper method doesn't halt the action chain (only `before_action` renders do that
+  automatically). Raising halts immediately regardless of call site.
+
+A resource-specific policy (e.g. `EmployeePolicy`) can be added in later milestones by
+overriding the policy class per controller.
+
+### `ProbesController` for testing the 403 path
+
+M4 has no write endpoints yet (those land in M5). To verify the 403 behavior without
+waiting for M5, a minimal `ProbesController#write` action was added that calls
+`authorize!(:write)` and returns `head :ok`. A route for it is registered only in the
+test environment (`if Rails.env.test?`). The controller lives in `app/controllers/`
+because Rails' Zeitwerk autoloader scans `app/` subdirectories — a file in `spec/support/`
+would not be autoloaded and would require manual `require`. The probe controller is not
+accessible in development or production.
+
+### `salaries.created_by_id` FK constraint: phantom-value strategy
+
+The M4 migration adds the FK from `salaries.created_by_id` to `users.id`. Pre-M4 seeds
+and test factories used a phantom `created_by_id: 1`. The migration nullifies any
+`created_by_id` values not present in `users` before enabling the constraint:
+
+```sql
+UPDATE salaries SET created_by_id = NULL
+WHERE created_by_id IS NOT NULL
+AND created_by_id NOT IN (SELECT id FROM users);
+```
+
+The `RecordSalaryChange` spec, which previously passed `created_by_id: 42`, was updated
+to default to `nil` (nullable, optional) and to create a real user only in the test that
+specifically asserts the ID is stored.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a

@@ -5,6 +5,5 @@ FactoryBot.define do
     currency { 'GBP' }
     sequence(:effective_date) { |n| Date.new(2024, 1, 1) + (n - 1).days }
     reason { 'new_hire' }
-    created_by_id { 1 }
   end
 end

@@ -65,6 +65,23 @@ The minor-units decision fails visibly here or nowhere.
 | 1.5 | Enter `0`, a negative, and a non-numeric value | Guard behavior, and whether the error is *readable* |
 | 1.6 | Save a salary, reload the page, compare to what you typed | Round-trip precision loss |
 
+## M4. Auth & roles (API surface: `POST /session`, `DELETE /session`, `GET /me`)
+
+Run `bin/rails s` before these checks. Use `curl` or a REST client.
+
+| # | Check | Catches |
+|---|---|---|
+| M4.1 | `POST /session` with valid `email` and `password` — does it return 201 with a `token` field and a `user` object containing `email`, `name`, and `role`? | Sign-in not returning a usable token |
+| M4.2 | `POST /session` with a wrong password — does it return 401? Does the error NOT reveal whether the email exists? | Credential enumeration via distinct error messages |
+| M4.3 | `GET /me` with no `Authorization` header — does it return 401? | Missing-token guard not firing |
+| M4.4 | `GET /me` with `Authorization: Bearer <valid token>` — does it return 200 with the correct user details? | Token not decoded or user not found |
+| M4.5 | `DELETE /session` with a valid token — does it return 200? Then retry `GET /me` with the same token — does it now return 401? | `invalidate_tokens!` not bumping `token_version`, or version not checked on decode |
+| M4.6 | Sign in as a viewer, copy the token. In the console, deactivate the user (`User.find_by(email: '...').deactivate!`). Retry `GET /me` with the old token — does it return 401? | `active` flag checked independently of `token_version` |
+| M4.7 | Sign in as a viewer. `POST /probes/write` (test env only) or wait for M5 write endpoints — does it return 403? | Viewer not blocked by `authorize!(:write)` |
+| M4.8 | Sign in as an hr_admin. `POST /probes/write` — does it return 200? | hr_admin incorrectly blocked |
+
+---
+
 ## M3. Salary history (model/service layer — console checks, no API yet)
 
 M3 has no API surface. Manual checks verify the invariants at the Rails console.
