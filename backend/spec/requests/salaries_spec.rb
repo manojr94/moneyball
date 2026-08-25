@@ -38,7 +38,7 @@ RSpec.describe 'Salaries API', type: :request do
                                currency: 'USD', effective_date: 5.years.ago.to_date)
       get "/employees/#{employee.id}/salaries", headers: viewer_headers
       body = response.parsed_body
-      ids = body.map { |s| s['id'] }
+      ids = body.pluck('id')
       expect(ids.index(recent.id)).to be < ids.index(old.id)
     end
 
