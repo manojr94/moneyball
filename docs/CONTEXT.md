@@ -321,6 +321,72 @@ The `RecordSalaryChange` spec, which previously passed `created_by_id: 42`, was 
 to default to `nil` (nullable, optional) and to create a real user only in the test that
 specifically asserts the ID is stored.
 
+## M5 decisions (2026-08-25)
+
+### `EmployeeQuery` as the index read path
+
+Filtering, sorting, and pagination for `GET /employees` are handled by `app/queries/employee_query.rb`
+rather than inlined in the controller, consistent with the architecture plan (§1: "Queries — read-side
+composable objects"). The controller stays thin: it validates auth, delegates to the query, and serializes
+the result.
+
+### Keyset pagination over `OFFSET`
+
+The implementation plan (§5) explicitly calls for keyset pagination because `OFFSET N` degrades linearly
+— `OFFSET 9000` on a 10k-employee table scans 9000 rows to discard them. Keyset pagination uses a
+cursor that encodes the last-seen sort value and id, turning the next-page lookup into an indexed range
+scan regardless of position. The cursor is opaque to callers (base64-encoded JSON) so the format can
+change without a client-side migration.
+
+*Trade-off:* keyset cursors are forward-only (no "jump to page 47") and require a stable sort. Both are
+acceptable: the employee list is unlikely to need random-access pagination, and the sort is always
+stable (sort column + id as tiebreaker).
+
+### OR-expanded cursor predicate rather than row-value comparison
+
+The cursor WHERE clause is expressed as:
+```sql
+sort_col > ? OR (sort_col = ? AND employees.id > ?)
+```
+rather than the more compact Postgres row-value syntax `(sort_col, id) > (?, ?)`. Both are semantically
+equivalent, but the OR form is explicit in `EXPLAIN` output and avoids any ORM type-casting ambiguity
+when the sort column is a `date`. The performance profile is the same: both forms are index-eligible.
+
+### `EmployeeSerializer` uses `as_json(only:)` for concision
+
+`EmployeeSerializer.render` calls `employee.as_json(only: FIELDS)` rather than constructing an
+explicit hash for each attribute. This keeps the method under RuboCop's `Metrics/MethodLength` limit
+without splitting the serializer into arbitrary helper methods. The `FIELDS` constant is the canonical
+allowlist — adding a column to the response requires only a change there. `department` is merged in
+separately because it is a nested association, not a flat attribute.
+
+*Trade-off:* `as_json` returns string-keyed hashes. This is correct for a JSON API (JSON always has
+string keys) and is transparent to callers because `render json:` handles both string and symbol keys.
+
+### `authorize!` updated to accept `policy_class:` keyword
+
+`ApplicationController#authorize!` now accepts an optional `policy_class:` keyword argument
+(defaulting to `ApplicationPolicy`). Controllers with resource-specific policies (starting with
+`EmployeesController`) pass their own class. This avoids hardcoding `ApplicationPolicy` in
+controllers and avoids adding per-controller `authorize!` overrides.
+
+*Trade-off:* `ApplicationPolicy` remains the default, so any controller that does not specify
+`policy_class:` continues to work unchanged.
+
+### `RSpec/MultipleMemoizedHelpers` limit raised to 10
+
+Request specs inherit four auth helpers (`admin`, `viewer`, `admin_headers`, `viewer_headers`) from
+the outer describe block, leaving only one slot before the default limit of 5. Raising to 10 in
+`.rubocop.yml` allows realistic integration test setup without requiring each inner describe to
+re-declare auth. The cap at 10 still catches genuinely bloated contexts.
+
+### `Employee.delete_all` in test setup (not `destroy_all`)
+
+Sorting and pagination specs need a controlled, known employee set, so they clear existing records
+before creating their own. `Employee.delete_all` (direct SQL) is used rather than `destroy_all`
+(which calls each record's `before_destroy` callback — blocked by the hard-delete guard). This is the
+same bypass DatabaseCleaner uses for test teardown; no application code takes this path.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a

@@ -16,6 +16,7 @@ class Employee < ApplicationRecord
   scope :active, -> { where(status: 'active') }
 
   before_validation :ensure_country_exists
+  before_validation :clear_terminated_on_if_not_terminated
   before_destroy do
     errors.add(:base, 'employees may not be hard-deleted; use deactivate! or terminate!')
     throw :abort
@@ -52,5 +53,11 @@ class Employee < ApplicationRecord
     return unless terminated_on.present? && status != 'terminated'
 
     errors.add(:terminated_on, 'can only be set when status is terminated')
+  end
+
+  def clear_terminated_on_if_not_terminated
+    return unless status_was == 'terminated' && status != 'terminated'
+
+    self.terminated_on = nil
   end
 end
