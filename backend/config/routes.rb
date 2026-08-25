@@ -4,5 +4,7 @@ Rails.application.routes.draw do
   resource :session, only: %i[create destroy]
   get '/me', to: 'me#show'
 
+  resources :employees, only: %i[index show create update]
+
   post '/probes/write', to: 'probes#write' if Rails.env.test?
 end
