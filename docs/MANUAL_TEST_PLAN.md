@@ -234,7 +234,6 @@ REST client. Requires seeded employees, salaries, and exchange rates — a fresh
 
 Run `bin/rails s` and `bin/rails db:seed` before these checks. Obtain an hr_admin token
 via `POST /session` and a viewer token from the same endpoint with a viewer account.
-See `backend/m8_manual_test.sh` for a scripted version of the checks below.
 
 | # | Check | Catches |
 |---|---|---|

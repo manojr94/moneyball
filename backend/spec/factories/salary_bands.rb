@@ -10,11 +10,6 @@ FactoryBot.define do
     effective_from   { 2.years.ago.to_date }
     effective_to     { nil }
 
-    trait :current do
-      effective_from { 2.years.ago.to_date }
-      effective_to   { nil }
-    end
-
     trait :closed do
       effective_from { 3.years.ago.to_date }
       effective_to   { 2.years.ago.to_date }

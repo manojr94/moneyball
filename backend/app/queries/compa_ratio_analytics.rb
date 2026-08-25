@@ -75,7 +75,8 @@ class CompaRatioAnalytics
         AND (sb.effective_to IS NULL OR sb.effective_to > %<as_of>s)
       LEFT JOIN rates_with_usd br ON br.currency = sb.currency
       LEFT JOIN subunits bs ON bs.code = sb.currency
-      WHERE employees.hire_date <= %<as_of>s
+      WHERE employees.status = 'active'
+        AND employees.hire_date <= %<as_of>s
         AND (employees.terminated_on IS NULL OR employees.terminated_on > %<as_of>s)
         %<excluded>s %<filters>s
     )
@@ -146,7 +147,8 @@ class CompaRatioAnalytics
       SELECT COUNT(DISTINCT (countries.pay_zone_id, employees.job_title, employees.job_level))
       FROM employees
       JOIN countries ON countries.code = employees.country_code
-      WHERE employees.hire_date <= #{q(@as_of)}
+      WHERE employees.status = 'active'
+        AND employees.hire_date <= #{q(@as_of)}
         AND (employees.terminated_on IS NULL OR employees.terminated_on > #{q(@as_of)})
         AND countries.pay_zone_id IS NOT NULL
         AND NOT EXISTS (
@@ -185,15 +187,17 @@ class CompaRatioAnalytics
 
   # rubocop:disable Metrics/AbcSize
   def subunits_values
-    salary_codes = Salary.distinct.pluck(:currency).map { |c| c.to_s.upcase }
-    band_codes   = SalaryBand.distinct.pluck(:currency).map { |c| c.to_s.upcase }
-    codes = (salary_codes + band_codes + ['USD']).uniq
-    codes.map do |c|
-      sub = Money::Currency.find(c)&.subunit_to_unit
-      raise ArgumentError, "Unrecognised currency #{c.inspect} — not in money-rails ISO 4217 data" if sub.nil?
+    @subunits_values ||= begin
+      salary_codes = Salary.distinct.pluck(:currency).map { |c| c.to_s.upcase }
+      band_codes   = SalaryBand.distinct.pluck(:currency).map { |c| c.to_s.upcase }
+      codes = (salary_codes + band_codes + ['USD']).uniq
+      codes.map do |c|
+        sub = Money::Currency.find(c)&.subunit_to_unit
+        raise ArgumentError, "Unrecognised currency #{c.inspect} — not in money-rails ISO 4217 data" if sub.nil?
 
-      "(#{q(c)}, #{sub})"
-    end.join(', ')
+        "(#{q(c)}, #{sub})"
+      end.join(', ')
+    end
   end
   # rubocop:enable Metrics/AbcSize
 

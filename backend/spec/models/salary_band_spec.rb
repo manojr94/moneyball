@@ -113,7 +113,7 @@ RSpec.describe SalaryBand do
       create(:salary_band, :closed, pay_zone: zone, job_title: 'Engineer', job_level: 'L3')
     end
     let!(:current_band) do
-      create(:salary_band, :current, pay_zone: zone, job_title: 'Engineer', job_level: 'L4')
+      create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L4')
     end
 
     it 'returns the open-ended band as of today' do

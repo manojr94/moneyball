@@ -21,8 +21,8 @@ RSpec.describe 'Salary Bands API', type: :request do
   # ---------------------------------------------------------------------------
   describe 'GET /salary_bands' do
     before do
-      create(:salary_band, :current, pay_zone: zone, job_title: 'Engineer', job_level: 'L3')
-      create(:salary_band, :closed,  pay_zone: zone, job_title: 'Manager',  job_level: 'L5')
+      create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L3')
+      create(:salary_band, :closed, pay_zone: zone, job_title: 'Manager', job_level: 'L5')
     end
 
     it 'returns 401 without a token' do
@@ -55,7 +55,7 @@ RSpec.describe 'Salary Bands API', type: :request do
     end
 
     it 'filters by pay_zone_id' do
-      create(:salary_band, :current, pay_zone: zone2, job_title: 'Analyst', job_level: 'L2')
+      create(:salary_band, pay_zone: zone2, job_title: 'Analyst', job_level: 'L2')
       get '/salary_bands', params: { pay_zone_id: zone2.id }, headers: viewer_headers
       pay_zone_ids = response.parsed_body.pluck('pay_zone_id')
       expect(pay_zone_ids).to all(eq(zone2.id))
@@ -68,10 +68,16 @@ RSpec.describe 'Salary Bands API', type: :request do
     end
 
     it 'filters by job_level' do
-      create(:salary_band, :current, pay_zone: zone, job_title: 'Analyst', job_level: 'L5')
+      create(:salary_band, pay_zone: zone, job_title: 'Analyst', job_level: 'L5')
       get '/salary_bands', params: { job_level: 'L3' }, headers: viewer_headers
       levels = response.parsed_body.pluck('job_level')
       expect(levels).to all(eq('L3'))
+    end
+
+    it 'returns 422 for a malformed effective_on date' do
+      get '/salary_bands', params: { effective_on: 'not-a-date' }, headers: viewer_headers
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body['error']).to include('effective_on')
     end
   end
 

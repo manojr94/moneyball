@@ -17,10 +17,10 @@ RSpec.describe CompaRatioAnalytics do
 
   # rubocop:disable Metrics/ParameterLists
   def employ(number:, country:, amount:, currency: 'USD', level: 'L3',
-             title: 'Engineer', hired: Date.new(2020, 1, 1))
+             title: 'Engineer', hired: Date.new(2020, 1, 1), status: 'active')
     e = create(:employee, employee_number: number, country_code: country,
                           department: dept, job_title: title, job_level: level, hire_date: hired,
-                          email: "#{number.downcase}@example.com")
+                          status:, email: "#{number.downcase}@example.com")
     Salary.create!(employee: e, amount_minor_units: amount, currency:,
                    effective_date: hired, reason: 'new_hire')
     e
@@ -204,6 +204,30 @@ RSpec.describe CompaRatioAnalytics do
     it 'counts uncovered (zone, title, level) combinations' do
       result = described_class.new(group_by: 'region', as_of:).call
       expect(result[:meta][:uncovered_combinations].to_i).to eq(1)
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Inactive employees are excluded (population parity with BandCoverage)
+  # ---------------------------------------------------------------------------
+  describe 'inactive employees' do
+    before do
+      make_band(zone: zone_na, min: 80_000_00, mid: 100_000_00, max: 130_000_00)
+      employ(number: 'ACT1', country: 'US', amount: 100_000_00, status: 'active')
+      employ(number: 'INA1', country: 'US', amount: 100_000_00, status: 'inactive')
+    end
+
+    it 'excludes inactive employees from headcount' do
+      groups = described_class.new(group_by: 'region', as_of:).call[:groups]
+      na = groups.find { |g| g[:key] == 'na' }
+      expect(na[:headcount]).to eq(1)
+    end
+
+    it 'excludes inactive employees from uncovered_combinations meta count' do
+      employ(number: 'INA2', country: 'US', amount: 100_000_00,
+             title: 'Designer', level: 'L4', status: 'inactive')
+      result = described_class.new(group_by: 'region', as_of:).call
+      expect(result[:meta][:uncovered_combinations].to_i).to eq(0)
     end
   end
 

@@ -1,14 +1,17 @@
 class SalaryBandsController < ApplicationController
   def index
     authorize!(:read, policy_class: SalaryBandPolicy)
-    bands = SalaryBand.covering(effective_on)
+    date = parse_effective_on
+    return render json: { error: 'effective_on is not a valid date' }, status: :unprocessable_content if date.nil?
+
+    bands = SalaryBand.covering(date)
                       .then { |s| apply_filters(s) }
                       .includes(:pay_zone)
                       .order(:pay_zone_id, :job_title, :job_level)
     render json: bands.map { |b| serialize(b) }
   end
 
-  # rubocop:disable Metrics/MethodLength
+  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize
   def create
     authorize!(:write, policy_class: SalaryBandPolicy)
     band = SalaryBand.new(band_params)
@@ -22,18 +25,23 @@ class SalaryBandsController < ApplicationController
       render json: { errors: band.errors.full_messages }, status: :unprocessable_content
     end
   rescue ActiveRecord::StatementInvalid => e
-    render json: { errors: [e.message.split("\n").first] }, status: :unprocessable_content
+    message = if e.cause.is_a?(PG::ExclusionViolation)
+                'a band for this zone, title, and level already exists covering that date'
+              else
+                e.message.split("\n").first
+              end
+    render json: { errors: [message] }, status: :unprocessable_content
   end
-  # rubocop:enable Metrics/MethodLength
+  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
 
   private
 
-  def effective_on
+  def parse_effective_on
     return Date.current if params[:effective_on].blank?
 
     Date.iso8601(params[:effective_on])
   rescue ArgumentError
-    Date.current
+    nil
   end
 
   # rubocop:disable Metrics/AbcSize
