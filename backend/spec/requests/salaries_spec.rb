@@ -84,6 +84,12 @@ RSpec.describe 'Salaries API', type: :request do
       expect(body).to include('amount_minor_units' => 9_000_000, 'currency' => 'USD')
     end
 
+    it 'does not mutate the existing salary row (effective-dated immutability)' do
+      post "/employees/#{employee.id}/salaries", params: valid_params,
+                                                 headers: admin_headers, as: :json
+      expect(salary.reload.amount_minor_units).to eq(8_000_000)
+    end
+
     it 'records the current_user as created_by' do
       post "/employees/#{employee.id}/salaries", params: valid_params,
                                                  headers: admin_headers, as: :json

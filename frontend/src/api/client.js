@@ -19,6 +19,11 @@ async function request(path, options = {}) {
   const body = await res.json()
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return null
+    }
     const message =
       body.error ?? body.errors?.join(', ') ?? `HTTP ${res.status}`
     const err = new Error(message)

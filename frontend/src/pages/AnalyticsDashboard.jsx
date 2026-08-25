@@ -20,6 +20,9 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
+// The analytics endpoint converts all amounts to USD using the caller-supplied rate_date.
+const REPORTING_CURRENCY = 'USD'
+
 function PayTable({ groups }) {
   if (!groups || groups.length === 0) return <EmptyState message="No data for current filters." />
   return (
@@ -28,11 +31,11 @@ function PayTable({ groups }) {
         <tr>
           <th>Group</th>
           <th>Headcount</th>
-          <th>Min (USD)</th>
-          <th>Median (USD)</th>
-          <th>Avg (USD)</th>
-          <th>Max (USD)</th>
-          <th>Total spend (USD)</th>
+          <th>Min ({REPORTING_CURRENCY})</th>
+          <th>Median ({REPORTING_CURRENCY})</th>
+          <th>Avg ({REPORTING_CURRENCY})</th>
+          <th>Max ({REPORTING_CURRENCY})</th>
+          <th>Total spend ({REPORTING_CURRENCY})</th>
         </tr>
       </thead>
       <tbody>
@@ -40,11 +43,11 @@ function PayTable({ groups }) {
           <tr key={g.key}>
             <td>{g.label ?? g.key}</td>
             <td>{g.headcount}</td>
-            <td>{formatMoney(g.min, 'USD')}</td>
-            <td>{formatMoney(g.median, 'USD')}</td>
-            <td>{formatMoney(g.avg, 'USD')}</td>
-            <td>{formatMoney(g.max, 'USD')}</td>
-            <td>{formatMoney(g.total_spend, 'USD')}</td>
+            <td>{formatMoney(g.min, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.median, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.avg, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.max, REPORTING_CURRENCY)}</td>
+            <td>{formatMoney(g.total_spend, REPORTING_CURRENCY)}</td>
           </tr>
         ))}
       </tbody>
@@ -91,8 +94,7 @@ CompaTable.propTypes = { groups: PropTypes.array }
 CompaTable.defaultProps = { groups: [] }
 
 function BandCoverageTable({ data }) {
-  if (!data) return <LoadingSpinner />
-  const uncovered = data.uncovered ?? data
+  const uncovered = data?.uncovered ?? data
   if (!Array.isArray(uncovered) || uncovered.length === 0)
     return <EmptyState message="All title/level/zone combinations are covered." />
   return (
@@ -134,7 +136,7 @@ export function AnalyticsDashboard() {
     data: payData,
     loading: payLoading,
     error: payError,
-  } = useApi(payFetch, [groupBy, asOf, rateDate])
+  } = useApi(payFetch, [groupBy, asOf, rateDate], { enabled: tab === 'pay' })
 
   const compaFetch = useCallback(
     () => compaRatioAnalytics({ group_by: groupBy, as_of: asOf, rate_date: rateDate }),
@@ -144,14 +146,14 @@ export function AnalyticsDashboard() {
     data: compaData,
     loading: compaLoading,
     error: compaError,
-  } = useApi(compaFetch, [groupBy, asOf, rateDate])
+  } = useApi(compaFetch, [groupBy, asOf, rateDate], { enabled: tab === 'compa_ratio' })
 
   const coverageFetch = useCallback(() => bandCoverage(), [])
   const {
     data: coverageData,
     loading: coverageLoading,
     error: coverageError,
-  } = useApi(coverageFetch, [])
+  } = useApi(coverageFetch, [], { enabled: tab === 'band_coverage' })
 
   return (
     <div className="page">

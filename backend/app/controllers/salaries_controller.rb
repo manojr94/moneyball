@@ -3,7 +3,7 @@ class SalariesController < ApplicationController
 
   def index
     authorize!(:read, policy_class: EmployeePolicy)
-    salaries = @employee.salaries.order(effective_date: :desc, id: :desc)
+    salaries = @employee.salaries.order(effective_date: :desc, id: :desc).limit(200)
     render json: salaries.map { |s| serialize(s) }
   end
 

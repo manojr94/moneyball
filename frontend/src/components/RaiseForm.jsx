@@ -8,7 +8,7 @@ const REASONS = ['merit', 'promotion', 'correction', 'role_change']
 
 export function RaiseForm({ employeeId, onSuccess, onCancel }) {
   const { user } = useAuth()
-  const isViewer = user?.role === 'viewer'
+  const isAdmin = user?.role === 'hr_admin'
 
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('USD')
@@ -17,7 +17,7 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
-  if (isViewer) return null
+  if (!isAdmin) return null
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -69,6 +69,8 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }) {
                 id="raise-currency"
                 type="text"
                 maxLength={3}
+                pattern="[A-Z]{3}"
+                title="3-letter ISO 4217 currency code (e.g. USD, EUR, JPY)"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value.toUpperCase())}
                 required
