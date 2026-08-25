@@ -316,6 +316,73 @@ Run against the full 10,000-employee seed, not a subset.
 | 8.4 | Compa-ratio across all 10k | Per-row band resolution |
 | 8.5 | Two browser tabs running heavy reports simultaneously | Connection pool exhaustion |
 
+## M9. Frontend
+
+The SPA runs on `:5173` against the API on `:3000`. Start both servers before testing.
+
+### M9.1 Authentication
+
+| # | Check | What to look for |
+|---|---|---|
+| M9.1 | Sign in as admin → redirected to employee list | URL changes, nav shows user name |
+| M9.2 | Sign in as viewer → employee list loads | No "Record salary change" button visible |
+| M9.3 | Invalid credentials → error shown | Error message appears without full-page reload |
+| M9.4 | Sign out → redirected to login | Cannot navigate to /employees without re-logging in |
+| M9.5 | Access /employees directly without token → redirected to /login | |
+
+### M9.2 Employee list
+
+| # | Check | What to look for |
+|---|---|---|
+| M9.6 | Employee list loads with active filter by default | Table renders, spinner disappears |
+| M9.7 | Switch filter to "All statuses" → terminated employees appear | Status badges show correct color |
+| M9.8 | Change sort to "Hire date" → order changes | List reloads, visually confirms new order |
+| M9.9 | Next page button advances to next page | Page counter increments, different employees shown |
+| M9.10 | Previous button is disabled on page 1 | Confirm it is greyed out |
+| M9.11 | Click an employee number → navigate to detail page | URL changes to /employees/:id |
+| M9.12 | Empty result (filter matching no one) → empty state message shown | Not a blank screen |
+
+### M9.3 Employee detail & salary timeline
+
+| # | Check | What to look for |
+|---|---|---|
+| M9.13 | Detail page shows name, department, title, level, country, status | All fields populated |
+| M9.14 | Salary timeline shows all records newest-first | Most recent row is visually distinguished |
+| M9.15 | Employee with no salary → "No salary records" empty state | Not a crash or blank |
+| M9.16 | Breadcrumb link returns to employee list | No full reload |
+
+### M9.4 Raise form (admin only)
+
+| # | Check | What to look for |
+|---|---|---|
+| M9.17 | "Record salary change" button appears for admin | Button visible in page header |
+| M9.18 | Button absent for viewer | No button in DOM |
+| M9.19 | Fill form → submit → new row appears in timeline | Salary count increases, new date at top |
+| M9.20 | Submit with empty amount → HTML5 required validation fires | Form does not submit |
+| M9.21 | Submit with invalid currency (e.g. "XY") → error shown from API | Error message rendered |
+| M9.22 | Cancel button closes form without saving | Timeline unchanged |
+
+### M9.5 Analytics dashboard
+
+| # | Check | What to look for |
+|---|---|---|
+| M9.23 | Pay tab loads by region on default date | Table shows NA/LATAM/EMEA/APAC rows |
+| M9.24 | Switch group-by to Department → table refreshes | Row keys are department names |
+| M9.25 | Change rate date to 1 year ago → totals differ from today | Demonstrates rate-date sensitivity |
+| M9.26 | Compa-ratio tab → table shows median compa-ratio column | Ratio looks plausible (0.8–1.2) |
+| M9.27 | Band coverage tab → uncovered combinations listed | Designer L4 visible if using seed data |
+| M9.28 | Band coverage "all covered" message if coverage is complete | Not a blank or crash |
+| M9.29 | API error (kill server mid-load) → error message shown | Not a blank screen |
+
+### M9.6 Band view
+
+| # | Check | What to look for |
+|---|---|---|
+| M9.30 | Band view loads with today's date | Seeded bands appear with min/mid/max formatted |
+| M9.31 | Change effective date to past date before seed bands → empty state | Not a crash |
+| M9.32 | Open band shows "open" in the "To" column | Not null or blank |
+| M9.33 | Amounts formatted with correct decimals | JPY bands have no decimal; KWD have 3 |
+
 ## 9. Cross-feature scenarios
 
 The seams. Run these end-to-end in one sitting.
