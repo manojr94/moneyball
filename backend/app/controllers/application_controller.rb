@@ -28,9 +28,8 @@ class ApplicationController < ActionController::API
     user
   end
 
-  def authorize!(action, record = nil)
-    policy = ApplicationPolicy.new(current_user, record)
-    raise NotAuthorizedError unless policy.public_send(:"#{action}?")
+  def authorize!(action, record = nil, policy_class: ApplicationPolicy)
+    raise NotAuthorizedError unless policy_class.new(current_user, record).public_send(:"#{action}?")
   end
 
   def bearer_token
