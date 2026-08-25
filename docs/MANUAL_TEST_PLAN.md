@@ -207,6 +207,37 @@ body — kept above until the PR is merged so the reviewer can trace what moved.
 
 ---
 
+## M7. Analytics API (`GET /analytics/pay`)
+
+Run `bin/rails s` and obtain a viewer token via `POST /session`. Use `curl` or a
+REST client. Requires seeded employees, salaries, and exchange rates — a fresh
+`bin/rails db:seed` is enough.
+
+| # | Check | Catches |
+|---|---|---|
+| M7.1 | `GET /analytics/pay?group_by=region` with no `Authorization` header — 401? | Auth guard on analytics endpoint |
+| M7.2 | As viewer, `GET /analytics/pay?group_by=region` — 200 with `groups[]` and `meta` (`as_of`, `rate_date`, `group_by`, `unconvertible_currencies`)? | Viewer read allowed; response shape |
+| M7.3 | As viewer, `GET /analytics/pay?group_by=planet` — 422 with an error naming the allowed values? | Unknown `group_by` accepted silently |
+| M7.4 | As viewer, `GET /analytics/pay?group_by=region&as_of=nope` — 422 with an error naming `as_of`? Same for `rate_date=nope`. | Malformed date accepted or crashing |
+| M7.5 | As viewer, `GET /analytics/pay?group_by=region&region=antarctica` — 422? | Region allowlist not enforced |
+| M7.6 | As viewer, `GET /analytics/pay?group_by=country&region=emea` — do all returned `key` values belong to countries in EMEA? | Filter not applied at the SQL level |
+| M7.7 | As viewer, `GET /analytics/pay?group_by=region&as_of=2000-01-01` — 200 with empty `groups[]` (nobody hired yet)? | Historical date crashing or returning phantom rows |
+| M7.8 | Add a salary in a currency with no exchange rate (`XCD`, say). Re-run M7.2 — does the group total exclude that employee **and** does `meta.unconvertible_currencies` include `"XCD"`? | Silent inclusion of unconvertible rows, or the meta hint missing |
+| M7.9 | Compare the sum of `total_spend_usd_minor_units` across `group_by=country` versus the single row for `group_by=region` (filtered to that region). Do they match? | Rollup arithmetic drift between grouping levels |
+| M7.10 | Run `group_by=region` twice: once with `rate_date=2024-01-01`, once with `rate_date=2024-06-01` (after seeding a rate change). Do EMEA totals differ? | `rate_date` param silently ignored |
+| M7.11 | In `psql`, pick a department with ~5 employees. Compute their median USD-converted salary by hand and compare to `GET /analytics/pay?group_by=department`'s `median_usd_minor_units` for that department. | `percentile_cont` misuse or rounding drift |
+| M7.12 | `GET /analytics/pay?group_by=department` — does each row's `label` show the department name (not the id)? Same for `group_by=country` (country name, not code). | Label lookup returning the raw key |
+
+**Note.** Manual checks 7.1, 7.2, 7.3 (median-by-hand), 7.5, 7.6, and 7.7 from
+§7 above are now covered by automated specs in
+`spec/queries/pay_analytics_spec.rb` (region rollup = sum of countries;
+per-country sum matches total; median for odd/even/single groups; empty
+groups; per-country headcount matches employee list; point-in-time date before
+any hire). Proposed for removal in the M7 PR body — kept above until the PR is
+merged so the reviewer can trace what moved.
+
+---
+
 ## 6. Authorization
 
 Test the API directly, not just the UI. A hidden button is not access control.
