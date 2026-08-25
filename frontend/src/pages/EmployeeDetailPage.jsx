@@ -62,12 +62,14 @@ export function EmployeeDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-lg border border-slate-200 bg-white shadow-sm p-6">
-          <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wide mb-4">
-            Details
-          </h3>
-          <dl className="space-y-3 text-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="px-6 py-4 border-b border-slate-200">
+            <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wide">
+              Details
+            </h3>
+          </div>
+          <dl className="divide-y divide-slate-100 text-sm">
             {[
               ['Employee #', employee.employee_number],
               ['Email', employee.email],
@@ -77,13 +79,13 @@ export function EmployeeDetailPage() {
               ['Country', employee.country_code],
               ['Hire date', employee.hire_date],
             ].map(([label, value]) => (
-              <div key={label} className="flex gap-4">
-                <dt className="w-28 shrink-0 text-slate-500">{label}</dt>
-                <dd className="text-slate-900">{value}</dd>
+              <div key={label} className="flex items-center px-6 py-3 gap-4">
+                <dt className="w-24 shrink-0 text-slate-500">{label}</dt>
+                <dd className="text-slate-900 font-medium">{value}</dd>
               </div>
             ))}
-            <div className="flex gap-4">
-              <dt className="w-28 shrink-0 text-slate-500">Status</dt>
+            <div className="flex items-center px-6 py-3 gap-4">
+              <dt className="w-24 shrink-0 text-slate-500">Status</dt>
               <dd>
                 <span className={`status-badge status-${employee.status}`}>{employee.status}</span>
               </dd>
