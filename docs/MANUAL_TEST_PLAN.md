@@ -178,6 +178,35 @@ The highest-risk surface — it writes in bulk.
 | 5.6 | Does the **dry-run preview** match what actually commits? | Preview/commit divergence — the worst failure here |
 | 5.7 | Import a country not yet configured | Auto-create + `needs_review`, without blocking |
 
+---
+
+## M6. Spreadsheet import API (`POST /imports/employees`)
+
+Run `bin/rails s` and obtain an hr_admin token via `POST /session`.
+Write a small CSV to `/tmp/import.csv` for the multipart checks — see
+`docs/CONTEXT.md` under "M6 decisions" for the schema.
+
+| # | Check | Catches |
+|---|---|---|
+| M6.1 | `POST /imports/employees` with no `Authorization` header — 401? | Auth guard on import endpoint |
+| M6.2 | As viewer, `POST /imports/employees` with a valid `csv` param — 403? | Write guard applied to import |
+| M6.3 | As hr_admin, `POST /imports/employees` with no `file` or `csv` param — 422 with an error naming `file is required`? | Missing-input guard |
+| M6.4 | As hr_admin, `POST /imports/employees -F file=@/tmp/import.csv` (multipart) with a valid one-row file — 200 with `dry_run: true`, `committed: false`, `summary.rows_valid: 1`? Confirm `Employee.count` is unchanged. | Dry-run default; nothing persisted; multipart upload works |
+| M6.5 | Same request but with `-F dry_run=false` — 201 with `committed: true`, `summary.employees_created: 1`? Confirm `Employee.count` incremented. | Commit path; explicit dry_run=false flips to write mode |
+| M6.6 | As hr_admin, POST a CSV where row 2 has a blank `first_name` and `dry_run=false` — 422 with `committed: false`, `errors[0].row == 2`, and `Employee.count` unchanged? | Atomic rollback surfaced correctly at the HTTP layer |
+| M6.7 | As hr_admin, POST a CSV missing the `email` column — 422 with `header_error` naming `email`, no rows processed? | Header validation runs before row processing |
+| M6.8 | Import a 10,000-row generated CSV (`bin/rails runner script/gen_import_csv.rb > /tmp/big.csv`). Time the request. Is it under 120 seconds? Does it stay under 500 MB RSS? *M10 will re-tighten this to <30s once stream + batch inserts land — see `docs/CONTEXT.md` under "M6 post-review fixes." Today's baseline is ~115s at ~11 ms/row.* | Regression guard on the current baseline; the aspirational target belongs to M10 |
+| M6.9 | Import a CSV whose `salary_amount` cell is quoted with commas (`"80,000.00"`) — does the salary land as expected minor units? | Excel-formatted number pass-through (the actual export format HR sends) |
+| M6.10 | Import a valid file, then import the exact same file again — first: 201; second: 422 with all rows flagged duplicate `has already been taken`? | Idempotency guard — a re-run is not a silent double-insert |
+
+**Note.** Manual checks 5.1–5.7 above are largely covered by automated specs in
+`spec/services/import_employees_spec.rb` (atomicity, dry-run parity, BOM/CRLF,
+column order, extra columns, empty/header-only, duplicate detection,
+unconfigured country auto-create). They are proposed for removal in the M6 PR
+body — kept above until the PR is merged so the reviewer can trace what moved.
+
+---
+
 ## 6. Authorization
 
 Test the API directly, not just the UI. A hidden button is not access control.
