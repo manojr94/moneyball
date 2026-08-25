@@ -546,17 +546,19 @@ Five findings from the M6 review (PR #10) were addressed before merge:
 
 ### Single-pass Postgres aggregate over CTEs, not Ruby-side reduction
 
-`PayAnalytics` runs one query per request. `DISTINCT ON (employee_id)` picks the
-current salary at `as_of`; `DISTINCT ON (currency)` picks the latest rate at
-`rate_date`; a `subunits` VALUES table injects the ISO 4217 exponent per
-currency; `percentile_cont(0.5) WITHIN GROUP` computes the median in-database.
-The whole aggregate is a single `SELECT ... GROUP BY group_key` — no rows
-crossing the ORM boundary except the already-reduced group rows.
+`PayAnalytics` runs one aggregate query per request, supported by two lighter
+lookups (an unconvertible-currency check and a currency-to-subunit pluck); a
+fourth query fires for country/department label resolution. `DISTINCT ON
+(employee_id)` picks the current salary at `as_of`; `DISTINCT ON (currency)`
+picks the latest rate at `rate_date`; a `subunits` VALUES table injects the ISO
+4217 exponent per currency; `percentile_cont(0.5) WITHIN GROUP` computes the
+median in-database. The aggregate is a single `SELECT ... GROUP BY group_key`
+— no rows crossing the ORM boundary except the already-reduced group rows.
 
 *Why not Ruby-side reduction:* the M7 spec calls for grouping across
 ~10k employees on every request. Even a tuned ActiveRecord path pulling one row
 per employee costs ~10k object allocations before any math starts, and median
-would require a full sort in Ruby. The single-pass SQL is O(N) with the group
+would require a full sort in Ruby. The aggregate SQL is O(N) with the group
 count as N, allocates one Hash per group, and pushes percentile_cont onto the
 planner which already knows how to do it.
 
@@ -571,7 +573,7 @@ interpolation.
 
 The aggregate multiplies `amount_minor_units / subunit * rate_to_usd * 100` to
 produce USD minor units. `subunit` is per-currency and comes from ISO 4217 (JPY
-100, USD 100, KWD 1000). Rather than joining a persistent `currencies` table,
+1, USD 100, KWD 1000). Rather than joining a persistent `currencies` table,
 `PayAnalytics#subunits_values` runs `Salary.distinct.pluck(:currency)`, adds
 `'USD'`, and emits a `VALUES ('JPY', 1), ('USD', 100), ...` clause each request.
 The list is small (a handful of currencies at most) and the source of truth is

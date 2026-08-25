@@ -228,7 +228,7 @@ REST client. Requires seeded employees, salaries, and exchange rates — a fresh
 | M7.11 | In `psql`, pick a department with ~5 employees. Compute their median USD-converted salary by hand and compare to `GET /analytics/pay?group_by=department`'s `median_usd_minor_units` for that department. | `percentile_cont` misuse or rounding drift |
 | M7.12 | `GET /analytics/pay?group_by=department` — does each row's `label` show the department name (not the id)? Same for `group_by=country` (country name, not code). | Label lookup returning the raw key |
 
-**Note.** Manual checks 7.1, 7.2, 7.3 (median-by-hand), 7.5, 7.6, and 7.7 from
+**Note.** Manual checks 7.1, 7.2, 7.3, 7.5, 7.6, 7.7, and 7.11 (median-by-hand) from
 §7 above are now covered by automated specs in
 `spec/queries/pay_analytics_spec.rb` (region rollup = sum of countries;
 per-country sum matches total; median for odd/even/single groups; empty

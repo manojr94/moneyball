@@ -135,7 +135,12 @@ class PayAnalytics
   # so the rates_with_usd branch has a matching subunit.
   def subunits_values
     codes = (Salary.distinct.pluck(:currency).map { |c| c.to_s.upcase } + ['USD']).uniq
-    codes.map { |c| "(#{q(c)}, #{Money::Currency.find(c)&.subunit_to_unit || 100})" }.join(', ')
+    codes.map do |c|
+      sub = Money::Currency.find(c)&.subunit_to_unit
+      raise ArgumentError, "Unrecognised currency #{c.inspect} — not in money-rails ISO 4217 data" if sub.nil?
+
+      "(#{q(c)}, #{sub})"
+    end.join(', ')
   end
 
   def present_group(row)

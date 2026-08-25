@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2024_01_01_000008) do
+ActiveRecord::Schema[7.1].define(version: 2026_08_25_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -88,6 +88,7 @@ ActiveRecord::Schema[7.1].define(version: 2024_01_01_000008) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["created_by_id"], name: "index_salaries_on_created_by_id"
+    t.index ["currency"], name: "index_salaries_on_currency"
     t.index ["employee_id", "effective_date"], name: "index_salaries_on_employee_id_and_effective_date", order: { effective_date: :desc }
     t.index ["employee_id"], name: "index_salaries_on_employee_id"
   end

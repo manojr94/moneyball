@@ -427,8 +427,7 @@ RSpec.describe PayAnalytics do
     it 'reports the currency as unconvertible when rate_date is before the earliest rate' do
       result = described_class.new(group_by: 'region', as_of: '2023-06-01',
                                    rate_date: '2023-06-01').call
-      # employee not yet hired anyway — check the currency list
-      expect(result[:meta][:unconvertible_currencies]).to include('EUR').or(be_empty)
+      expect(result[:meta][:unconvertible_currencies]).to eq(['EUR'])
     end
   end
 end
