@@ -228,6 +228,45 @@ REST client. Requires seeded employees, salaries, and exchange rates — a fresh
 | M7.11 | In `psql`, pick a department with ~5 employees. Compute their median USD-converted salary by hand and compare to `GET /analytics/pay?group_by=department`'s `median_usd_minor_units` for that department. | `percentile_cont` misuse or rounding drift |
 | M7.12 | `GET /analytics/pay?group_by=department` — does each row's `label` show the department name (not the id)? Same for `group_by=country` (country name, not code). | Label lookup returning the raw key |
 
+---
+
+## M8. Bands, compa-ratio & coverage (`GET /salary_bands`, `POST /salary_bands`, `GET /analytics/compa_ratio`, `GET /analytics/band_coverage`)
+
+Run `bin/rails s` and `bin/rails db:seed` before these checks. Obtain an hr_admin token
+via `POST /session` and a viewer token from the same endpoint with a viewer account.
+
+| # | Check | Catches |
+|---|---|---|
+| M8.1 | `GET /salary_bands` with no `Authorization` — 401? | Auth guard on bands endpoint |
+| M8.2 | `GET /salary_bands` as viewer — 200 with an array of bands including `pay_zone_name`? | Viewer read allowed; response shape |
+| M8.3 | `GET /salary_bands?job_title=Engineer&job_level=L3` — does the result contain only L3 Engineer bands? | Filter applied |
+| M8.4 | `POST /salary_bands` as viewer — 403? | Write guard on bands |
+| M8.5 | `POST /salary_bands` as hr_admin with valid JSON — 201 with the new band? | Create path |
+| M8.6 | `POST /salary_bands` again with the same `(pay_zone_id, job_title, job_level, effective_from)` — 422? | Idempotency guard |
+| M8.7 | `POST /salary_bands` with `max_minor_units < min_minor_units` — 422 with an error mentioning `min`? | Ordering validation |
+| M8.8 | After creating a new band for an existing (zone, title, level), check that the previous band now has `effective_to` set. | Auto-close logic |
+| M8.9 | `GET /analytics/compa_ratio` with no token — 401? | Auth guard |
+| M8.10 | As viewer, `GET /analytics/compa_ratio?group_by=region` — 200 with `groups[]` and `meta` containing `as_of`, `rate_date`, `group_by`, `unconvertible_currencies`, `uncovered_combinations`? | Response shape |
+| M8.11 | Each group row has `key`, `label`, `headcount`, `covered_headcount`, `avg_compa_ratio` (4dp string or null), `below`, `within`, `above`, `unresolved`? | Row shape |
+| M8.12 | An employee whose salary currency has no rate — is the employee excluded and the currency listed in `meta.unconvertible_currencies`? | Missing-rate surfaced |
+| M8.13 | An employee in a country with no pay zone — is `unresolved` incremented (not a crash)? | Unzoned graceful handling |
+| M8.14 | `GET /analytics/band_coverage` with no token — 401? | Auth guard |
+| M8.15 | As viewer, `GET /analytics/band_coverage` — 200 with `{ uncovered: [...], unzoned: [...] }`? | Response shape |
+| M8.16 | After seeding, is at least one entry in `uncovered` (Designer L4 has no band in seed data)? | Coverage report non-empty |
+| M8.17 | Does `unzoned` list employees whose country has no pay zone? | Unzoned surface |
+| M8.18 | Create a band for an uncovered combination; re-run coverage — does the row disappear? | Coverage report reflects reality |
+
+**Proposed automated checks for removal in this PR:**
+- §4 checks 4.1–4.7 are now covered by automated specs:
+  - 4.1 (unzoned country) → `spec/services/band_resolver_spec.rb` `:unzoned_country` describe
+  - 4.2 (no band) → `spec/services/band_resolver_spec.rb` `:no_band` describe
+  - 4.3 (boundary values at min/mid/max) → `spec/services/band_resolver_spec.rb` `bucket boundary values` describe
+  - 4.4 (band currency ≠ salary currency) → `spec/services/band_resolver_spec.rb` `band currency differs` describe
+  - 4.5 (far above/below) → `spec/services/band_resolver_spec.rb` boundary `:above`/`:below` checks
+  - 4.6 (band changed mid-period) → `spec/models/salary_band_spec.rb` + `band_resolver_spec.rb`
+  - 4.7 (coverage report accuracy) → `spec/requests/band_coverage_spec.rb` `contain_exactly` check
+  These are proposed for removal in the PR body, not deleted here.
+
 **Note.** Manual checks 7.1, 7.2, 7.3, 7.5, 7.6, 7.7, and 7.11 (median-by-hand) from
 §7 above are now covered by automated specs in
 `spec/queries/pay_analytics_spec.rb` (region rollup = sum of countries;

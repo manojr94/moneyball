@@ -7,6 +7,19 @@ class AnalyticsController < ApplicationController
     render json: query.call
   end
 
+  def compa_ratio
+    authorize!(:read)
+    query = CompaRatioAnalytics.new(query_params)
+    return render json: { error: query.error }, status: :unprocessable_content unless query.valid?
+
+    render json: query.call
+  end
+
+  def band_coverage
+    authorize!(:read)
+    render json: BandCoverage.new.call
+  end
+
   private
 
   def query_params

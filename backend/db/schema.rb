@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_08_25_000001) do
+ActiveRecord::Schema[7.1].define(version: 2026_08_26_000001) do
   # These are extensions that must be enabled in order to support this database
+  enable_extension "btree_gist"
   enable_extension "plpgsql"
 
   # Custom types defined in this database.
@@ -93,6 +94,24 @@ ActiveRecord::Schema[7.1].define(version: 2026_08_25_000001) do
     t.index ["employee_id"], name: "index_salaries_on_employee_id"
   end
 
+  create_table "salary_bands", force: :cascade do |t|
+    t.string "job_title", null: false
+    t.string "job_level", null: false
+    t.bigint "pay_zone_id", null: false
+    t.string "currency", limit: 3, null: false
+    t.bigint "min_minor_units", null: false
+    t.bigint "mid_minor_units", null: false
+    t.bigint "max_minor_units", null: false
+    t.date "effective_from", null: false
+    t.date "effective_to"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pay_zone_id", "job_title", "job_level", "effective_from"], name: "index_salary_bands_on_zone_title_level_from", order: { effective_from: :desc }
+    t.index ["pay_zone_id"], name: "index_salary_bands_on_pay_zone_id"
+    t.check_constraint "min_minor_units <= mid_minor_units AND mid_minor_units <= max_minor_units", name: "salary_bands_ordered"
+    t.exclusion_constraint "pay_zone_id WITH =, job_title WITH =, job_level WITH =, daterange(effective_from, effective_to, '[)'::text) WITH &&", using: :gist, name: "salary_bands_no_overlap"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email", null: false
     t.string "password_digest", null: false
@@ -111,4 +130,5 @@ ActiveRecord::Schema[7.1].define(version: 2026_08_25_000001) do
   add_foreign_key "employees", "departments"
   add_foreign_key "salaries", "employees"
   add_foreign_key "salaries", "users", column: "created_by_id"
+  add_foreign_key "salary_bands", "pay_zones"
 end
