@@ -82,6 +82,33 @@ Run `bin/rails s` before these checks. Use `curl` or a REST client.
 
 ---
 
+## M5. Employee API (`GET /employees`, `GET /employees/:id`, `POST /employees`, `PATCH /employees/:id`)
+
+Run `bin/rails s` before these checks. Use `curl` or a REST client with the token from M4.1.
+
+| # | Check | Catches |
+|---|---|---|
+| M5.1 | `GET /employees` with no `Authorization` header — does it return 401? | Auth guard not applied to index |
+| M5.2 | `GET /employees` as viewer — does it return 200 with a `data` array and a `meta` object containing `per_page` and `next_cursor`? | Basic index response shape |
+| M5.3 | `GET /employees?status=active` as viewer — do all returned employees have `status: "active"`? | Status filter not applied |
+| M5.4 | `GET /employees?status=bogus` — does it return 422 with an error message naming the valid statuses? | Invalid filter accepted silently |
+| M5.5 | `GET /employees?per_page=3` — does `data` have 3 items and `next_cursor` a non-null value (assuming > 3 employees exist)? | Pagination not limiting results |
+| M5.6 | Follow the cursor from M5.5: `GET /employees?per_page=3&cursor=<value>` — is the next page disjoint from the first (no shared IDs)? | Cursor producing duplicates or skipping records |
+| M5.7 | Walk all pages with `per_page=5` until `next_cursor` is null. Does the total count match `Employee.count`? | Records dropped or duplicated across pages |
+| M5.8 | `GET /employees?per_page=9999` — does `meta.per_page` cap at 100? | per_page clamping not enforced |
+| M5.9 | `GET /employees?sort=last_name` — are employees returned in ascending last_name order? | Sort param ignored |
+| M5.10 | `GET /employees/:id` as viewer for a valid id — 200 with the right employee? As viewer for id 0 — 404? | Show not finding the right record; missing not-found guard |
+| M5.11 | `POST /employees` as viewer — does it return 403? | Write path not protected |
+| M5.12 | `POST /employees` as hr_admin with all required fields — does it return 201 with the new employee, including a `department` object? | Create not persisting or not returning the right shape |
+| M5.13 | `POST /employees` as hr_admin with `country_code: "ZZ"` (no country row) — does it return 201 and does `Country.find("ZZ").needs_review` return `true`? | Auto-create invariant not applied on API path |
+| M5.14 | `POST /employees` as hr_admin omitting `last_name` — 422 with errors array? | Missing field validation not surfaced |
+| M5.15 | `PATCH /employees/:id` as viewer — 403? | Write guard on update |
+| M5.16 | `PATCH /employees/:id` as hr_admin with `{ "employee": { "job_title": "Director" } }` — 200 with updated `job_title`? Does the DB row match? | Partial update not applied |
+| M5.17 | `PATCH /employees/:id` as hr_admin with `{ "employee": { "status": "terminated", "terminated_on": "2024-12-31" } }` — 200 with both fields updated? | Termination update path |
+| M5.18 | `PATCH /employees/:id` as hr_admin with `{ "employee": { "terminated_on": "2024-12-31" } }` (no status change) — 422 with a validation error? | Cross-field validation not enforced via API |
+
+---
+
 ## M3. Salary history (model/service layer — console checks, no API yet)
 
 M3 has no API surface. Manual checks verify the invariants at the Rails console.
