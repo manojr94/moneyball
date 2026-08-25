@@ -706,6 +706,86 @@ Designer L4 is intentionally left without a band so the coverage report is non-e
 a fresh seed. `find_or_create_by!` on `(pay_zone_id, job_title, job_level, effective_from)`
 makes the seed idempotent.
 
+## M9 decisions (2026-08-25)
+
+### Salary endpoints added to backend for timeline and raise form
+
+M9 needed `GET /employees/:id/salaries` (salary history) and `POST /employees/:id/salaries`
+(record a raise) — neither existed before the frontend milestone. A `SalariesController`
+was added with nested routes under `employees`. `POST` delegates to `RecordSalaryChange`,
+sets `created_by_id` to the current user, and is admin-only (the same `EmployeePolicy`
+write? guard used by `EmployeesController`). The `GET` endpoint is open to viewers.
+
+### JSX retained, TypeScript deferred
+
+The scaffold used JSX and `vite.config.js` without TypeScript. The implementation plan
+mentions TypeScript in the architecture diagram but the existing test infrastructure
+(Vitest + RTL) and build config all target JSX. Adding TypeScript would require a new
+`tsconfig.json`, converting all files to `.tsx`/`.ts`, and resolving type errors across the
+codebase — a project-wide change orthogonal to delivering UI behaviour. Deferred to M11
+(documentation/deploy cleanup), where a TypeScript migration can be done cleanly in one pass.
+
+### `AuthContext` exported alongside `AuthProvider` for testability
+
+`AuthContext` is exported as a named export so test files can provide values directly via
+`<AuthContext.Provider value={...}>` without going through the full `AuthProvider` lifecycle
+(which calls `me()` on mount). The ESLint `react-refresh/only-export-components` warning
+this triggers is a warning, not an error — fast-refresh still works; the warning signals
+only that the component won't hot-reload in isolation. Acceptable trade-off for clean test setup.
+
+### PropTypes instead of TypeScript interfaces
+
+Without TypeScript, component prop contracts are enforced via the `react/prop-types` ESLint
+rule. PropTypes were added to every component that accepts props.
+
+### No UI library
+
+All styling is plain CSS in `index.css`. A UI library (MUI, Tailwind, Chakra) would add a
+dependency, impose a design system, and require configuration — unnecessary for a portfolio
+frontend where the point is demonstrating React patterns, not polished design.
+
+### `react-router-dom` is the only new production dependency
+
+Single addition: `react-router-dom` for client-side routing. All other needs (data fetching,
+state, money formatting) are covered by native browser APIs, React built-ins, and
+`Intl.NumberFormat` respectively. Keeping the dependency surface small is a deliberate
+choice for a portfolio project.
+
+### Deferred to future milestones (discovered during M9 manual QA)
+
+The following items were identified during the M9 manual test walkthrough but deferred to
+keep this PR focused:
+
+- **Tailwind / component library (high priority):** Plain CSS with native browser controls
+  has a hard ceiling on polish. Agreed to add Tailwind + shadcn/ui in a dedicated milestone
+  (`feat/m10-tailwind`): strip `index.css`, restyle all components in one pass. Avoids
+  mid-feature CSS conflicts.
+- **Sortable column headers:** The sort-by dropdown works but is not intuitive. Standard
+  pattern is clickable column headers with an arrow indicator. Defer to Tailwind milestone
+  where table components will be rebuilt.
+- **Department filter on employee list:** `EmployeeQuery` already supports `department_id`
+  filtering but the frontend has no UI for it. Sorting by department name via JOIN was
+  ruled out (no clean keyset cursor index); a filter dropdown is the right UX. Requires a
+  `GET /departments` endpoint. Defer to next feature milestone.
+- **`PayAnalytics` / `CompaRatioAnalytics` duplication:** Both classes share `LABEL_SOURCE`,
+  `REGION_LABELS`, `label_lookup`, and filter/group infrastructure. Extract to an
+  `Analytics::GroupingSupport` concern. Defer to cleanup milestone — behavior is correct,
+  this is pure refactor.
+- **Analytics filter bar UX (Tailwind milestone):** "As of" and "Rate date" are domain
+  jargon. Need tooltips or inline help text explaining what each controls ("snapshot date
+  for headcount / salary", "exchange rate conversion date"). The feature is powerful but
+  the labels alone don't communicate it. Invest in this when the component library lands.
+- **"Currencies excluded" warning needs more context (Tailwind milestone):** The current
+  warning ("Currencies excluded (no rate): XCD") is technically correct but not actionable
+  for an HR manager. Should explain what it means ("1 employee excluded — no XCD exchange
+  rate on file for this date") and ideally link to where rates can be added. Invest in
+  this alongside the filter bar UX improvements.
+- **Band coverage tab needs explanatory copy (Tailwind milestone):** The table is a TODO
+  list for the compensation team — "these title/level/zone combinations have active
+  employees but no salary band." That is not obvious from the column headers alone. Add a
+  short description above the table explaining what "uncovered" means and what action the
+  HR team should take (create a band for that combination).
+
 ---
 
 ## Working agreements
