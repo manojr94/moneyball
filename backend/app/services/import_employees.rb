@@ -149,6 +149,17 @@ class ImportEmployees
       @attrs = RowAttrs.extract(@row)
       return if duplicate_in_file?
 
+      save_row
+    rescue ActiveRecord::RecordNotUnique => e
+      # Concurrent import raced us to the unique index. Recorded as a row error
+      # so the outer transaction rolls back cleanly instead of 500-ing.
+      field = e.message[/employee_number|email/] || 'unique field'
+      error("conflicts with an existing record (#{field})")
+    end
+
+    private
+
+    def save_row
       employee = build_employee
       if employee.save && maybe_create_salary(employee)
         @state.employees_created += 1
@@ -157,8 +168,6 @@ class ImportEmployees
         @state.record_error(@row_num, @attrs[:employee_number], employee.errors.full_messages)
       end
     end
-
-    private
 
     def duplicate_in_file?
       dup = duplicate_seen
@@ -172,7 +181,7 @@ class ImportEmployees
     def duplicate_seen
       if @attrs[:employee_number] && (prior = @state.seen_numbers[@attrs[:employee_number]])
         ['employee_number', prior]
-      elsif @attrs[:email] && (prior = @state.seen_emails[@attrs[:email].downcase])
+      elsif @attrs[:email] && (prior = @state.seen_emails[@attrs[:email]])
         ['email', prior]
       else
         remember_row
@@ -182,7 +191,7 @@ class ImportEmployees
 
     def remember_row
       @state.seen_numbers[@attrs[:employee_number]] = @row_num if @attrs[:employee_number]
-      @state.seen_emails[@attrs[:email].downcase] = @row_num if @attrs[:email]
+      @state.seen_emails[@attrs[:email]] = @row_num if @attrs[:email]
     end
 
     def build_employee
@@ -202,15 +211,21 @@ class ImportEmployees
 
     def maybe_create_salary(employee)
       return true if SALARY_FIELDS.none? { |f| @attrs[f.to_sym] }
-
-      missing = missing_salary_fields
-      return error("salary: missing #{missing.join(', ')}") && false if missing.any?
+      return false unless salary_fields_present?
 
       RecordSalaryChange.call(**salary_args(employee))
       @state.salaries_created += 1
       true
     rescue RecordSalaryChange::Error, ArgumentError, Money::Currency::UnknownCurrency => e
       error("salary: #{e.message}")
+      false
+    end
+
+    def salary_fields_present?
+      missing = missing_salary_fields
+      return true if missing.empty?
+
+      error("salary: missing #{missing.join(', ')}")
       false
     end
 
@@ -245,20 +260,23 @@ class ImportEmployees
   # Extracts, trims, and normalizes a CSV::Row into a symbol-keyed hash.
   # Also handles the "no salary fields present" path by leaving them nil.
   module RowAttrs
-    STRING_FIELDS = %w[
-      employee_number first_name last_name email
-      department_name job_title job_level hire_date terminated_on
-      salary_amount salary_effective_date
-    ].freeze
-    UPCASE_FIELDS = %w[country_code salary_currency].freeze
+    # Field => normaliser applied after trim. `:itself` leaves the trimmed value
+    # unchanged; `:upcase` for ISO codes; `:downcase` so email persistence, in-
+    # file dedupe, and the DB's case-sensitive unique index all agree.
+    NORMALIZERS = {
+      'employee_number' => :itself, 'first_name' => :itself, 'last_name' => :itself,
+      'department_name' => :itself, 'job_title' => :itself, 'job_level' => :itself,
+      'hire_date' => :itself, 'terminated_on' => :itself,
+      'salary_amount' => :itself, 'salary_effective_date' => :itself,
+      'country_code' => :upcase, 'salary_currency' => :upcase,
+      'email' => :downcase
+    }.freeze
 
     module_function
 
     def extract(row)
-      attrs = {}
-      STRING_FIELDS.each { |f| attrs[f.to_sym] = trim(row[f]) }
-      UPCASE_FIELDS.each { |f| attrs[f.to_sym] = trim(row[f])&.upcase }
-      attrs[:status] = trim(row['status']) || 'active'
+      attrs = { status: trim(row['status']) || 'active' }
+      NORMALIZERS.each { |f, op| attrs[f.to_sym] = trim(row[f])&.public_send(op) }
       attrs
     end
 

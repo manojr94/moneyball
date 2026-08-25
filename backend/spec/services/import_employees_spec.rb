@@ -192,6 +192,37 @@ RSpec.describe ImportEmployees do
       expect(result.committed).to be(false)
       expect(result.rows_invalid).to eq(1)
     end
+
+    it 'treats email as case-insensitive for in-file dedupe' do
+      body = csv([
+                   row('employee_number' => 'A1', 'email' => 'Same@X.com'),
+                   row('employee_number' => 'A2', 'email' => 'same@x.com')
+                 ])
+      result = described_class.call(body, dry_run: true)
+      expect(result.errors.first.messages.first).to include('duplicate email')
+    end
+
+    it 'persists email in lowercase so a second import with different case is rejected' do
+      first  = csv([row('employee_number' => 'CASE1', 'email' => 'Mixed@X.com')])
+      second = csv([row('employee_number' => 'CASE2', 'email' => 'mixed@x.com')])
+      described_class.call(first, dry_run: false)
+      expect(Employee.find_by(employee_number: 'CASE1').email).to eq('mixed@x.com')
+      result = described_class.call(second, dry_run: false)
+      expect(result.committed).to be(false)
+      expect(result.rows_invalid).to eq(1)
+    end
+
+    it 'records a row error (not a 500) when a concurrent insert wins the unique index' do
+      # Simulates the race: our uniqueness SELECT passes, then the INSERT collides
+      # with a row inserted by another transaction between the check and the write.
+      body = csv([row('employee_number' => 'RACE', 'email' => 'race@x.com')])
+      allow_any_instance_of(Employee).to receive(:save) # rubocop:disable RSpec/AnyInstance
+        .and_raise(ActiveRecord::RecordNotUnique, 'PG::UniqueViolation: employee_number')
+      result = described_class.call(body, dry_run: false)
+      expect(result.committed).to be(false)
+      expect(result.errors.first.messages.first).to include('conflicts with an existing record')
+      expect(result.errors.first.messages.first).to include('employee_number')
+    end
   end
 
   # ---------------------------------------------------------------------------

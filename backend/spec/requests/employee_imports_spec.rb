@@ -47,9 +47,10 @@ RSpec.describe 'Employee imports API', type: :request do
   end
 
   it 'returns 422 when the CSV is missing required columns' do
-    post '/imports/employees', params: { csv: 'employee_number\nEMP001' }, headers: admin_headers
+    post '/imports/employees', params: { csv: "employee_number,first_name\nEMP001,Alice" }, headers: admin_headers
     expect(response).to have_http_status(:unprocessable_content)
     expect(response.parsed_body['header_error']).to include('missing required column')
+    expect(response.parsed_body['header_error']).to include('email')
   end
 
   # ---------------------------------------------------------------------------

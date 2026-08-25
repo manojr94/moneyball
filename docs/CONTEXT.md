@@ -508,6 +508,40 @@ cache) lives in `ImportState`. Splitting kept each unit within the standard
 RuboCop metrics without loosening the limits, and each collaborator has one
 reason to change.
 
+### M6 post-review fixes (2026-08-25)
+
+Five findings from the M6 review (PR #10) were addressed before merge:
+
+- **Concurrent import → 500** — `RowImporter#call` now rescues
+  `ActiveRecord::RecordNotUnique` and records it as a row error. Rails'
+  uniqueness validation is not race-safe: two imports of the same
+  `employee_number`/`email` both pass the `SELECT` check, and the loser's
+  `INSERT` used to escape the transaction as an unhandled exception. Now the
+  outer transaction rolls back cleanly with a `"conflicts with an existing
+  record"` row error. Spec added; simulates the race via
+  `allow_any_instance_of(Employee).to receive(:save)`.
+- **Email case inconsistency** — `RowAttrs.extract` now downcases email
+  (moved from `STRING_FIELDS` to a new `DOWNCASE_FIELDS`). Before this,
+  in-file dedupe compared `.downcase` but persistence kept the original case
+  and the DB unique index is case-sensitive, so cross-file `Alice@x.com` +
+  `alice@x.com` would both persist. Downcasing on ingest keeps in-file
+  dedupe, persistence, and the DB check aligned. Two specs added: mixed-case
+  in-file, and mixed-case across imports.
+- **Stream + batch deferred to M10** — the plan's §risks entry ("Stream rows;
+  batch inserts; never load the whole sheet") is not yet honoured; `CSV.parse`
+  loads the whole table and each row inserts individually. Manual test M6.8
+  (<30s, <500 MB RSS for 10k rows) is the guard until M10 revisits it as an
+  automated benchmark. Deferring rather than doing it now because streaming
+  changes the header-validation contract (headers arrive with the first row,
+  not up-front) and batch inserts bypass the per-row validations that this
+  service relies on.
+- **`maybe_create_salary` mixed return type** — replaced
+  `return error(...) && false` with `error(...); return false` so both
+  branches return the same boolean. Behaviour unchanged.
+- **Test literal `'\n'` bug** — the "missing required columns" request spec
+  used a single-quoted `'employee_number\nEMP001'` (literal backslash-n).
+  Rewritten with an interpolated newline and a real second column.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a
