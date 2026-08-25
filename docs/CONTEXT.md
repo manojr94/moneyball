@@ -542,6 +542,102 @@ Five findings from the M6 review (PR #10) were addressed before merge:
   used a single-quoted `'employee_number\nEMP001'` (literal backslash-n).
   Rewritten with an interpolated newline and a real second column.
 
+## M7 decisions (2026-08-25)
+
+### Single-pass Postgres aggregate over CTEs, not Ruby-side reduction
+
+`PayAnalytics` runs one aggregate query per request, supported by two lighter
+lookups (an unconvertible-currency check and a currency-to-subunit pluck); a
+fourth query fires for country/department label resolution. `DISTINCT ON
+(employee_id)` picks the current salary at `as_of`; `DISTINCT ON (currency)`
+picks the latest rate at `rate_date`; a `subunits` VALUES table injects the ISO
+4217 exponent per currency; `percentile_cont(0.5) WITHIN GROUP` computes the
+median in-database. The aggregate is a single `SELECT ... GROUP BY group_key`
+— no rows crossing the ORM boundary except the already-reduced group rows.
+
+*Why not Ruby-side reduction:* the M7 spec calls for grouping across
+~10k employees on every request. Even a tuned ActiveRecord path pulling one row
+per employee costs ~10k object allocations before any math starts, and median
+would require a full sort in Ruby. The aggregate SQL is O(N) with the group
+count as N, allocates one Hash per group, and pushes percentile_cont onto the
+planner which already knows how to do it.
+
+*Trade-off:* the SQL is not composable through ActiveRecord scopes. Filters
+are appended as text (`AND col = quoted_value`) via a `FILTERS` allowlist that
+maps param names to fully qualified column expressions — the caller can only
+supply values, never column names. All values go through
+`connection.quote`, so injection is not a live concern despite the string
+interpolation.
+
+### Currency exponent handled via a runtime-built VALUES table
+
+The aggregate multiplies `amount_minor_units / subunit * rate_to_usd * 100` to
+produce USD minor units. `subunit` is per-currency and comes from ISO 4217 (JPY
+1, USD 100, KWD 1000). Rather than joining a persistent `currencies` table,
+`PayAnalytics#subunits_values` runs `Salary.distinct.pluck(:currency)`, adds
+`'USD'`, and emits a `VALUES ('JPY', 1), ('USD', 100), ...` clause each request.
+The list is small (a handful of currencies at most) and the source of truth is
+`Money::Currency` (money-rails), which already carries the full ISO 4217 dataset.
+
+*Why not a table:* a persisted `currencies` table would duplicate money-rails
+and drift on ISO revisions. The runtime lookup uses the library's data
+directly, so a currency added to money-rails is picked up on the next query
+without a migration.
+
+### Missing exchange rate → explicit exclusion, surfaced in `meta`
+
+An employee whose salary currency has no rate on or before `rate_date` is
+excluded from the aggregate (via a `NOT IN` clause on `cs.currency`), and the
+excluded currency codes are returned in `meta.unconvertible_currencies`. This
+matches the invariant "a data gap is visible rather than silently dropping
+employees from totals" — the alternative (leaving them in with a null rate)
+would silently zero their spend contribution.
+
+USD is always resolvable regardless of what is in `exchange_rates`: the
+`rates_with_usd` CTE injects `('USD', 1)` and the `subunits` VALUES row always
+includes `('USD', 100)`. This means USD-paid employees never fall into the
+unconvertible bucket even on a freshly-seeded DB with no rates.
+
+### Response shape: `{ groups: [...], meta: {...} }`
+
+Every group row carries `key`, `label`, `headcount`, and five aggregate
+figures in USD minor units (`total_spend`, `min`, `median`, `avg`, `max`),
+plus `currency: 'USD'` so a client that renders a row without checking meta
+still gets an unambiguous unit. `label` is looked up per group_by: country
+maps `code → name`, department maps `id → name`, region and level pass the
+key through unchanged (no separate labels table). `meta` carries the effective
+`as_of`, `rate_date`, `group_by`, and `unconvertible_currencies`.
+
+### Read-side query object, thin controller
+
+`AnalyticsController#pay` calls `authorize!(:read)`, instantiates
+`PayAnalytics.new(query_params)`, returns 422 with `query.error` if invalid,
+otherwise renders `query.call`. Same pattern as `EmployeeQuery` in M5. The
+controller has no business logic; the query object is unit-testable without
+Rack.
+
+### Filter validation: region only
+
+`region` is validated against `Country::REGIONS` (the fixed enum from M1);
+an unknown value returns 422. `country_code`, `department_id`, and `job_level`
+are not validated for existence — an unknown value simply produces an empty
+result. Rationale: region is a fixed, small, closed set (four values), so
+"antarctica" is a client bug worth surfacing; the other filters are
+open-vocabulary and a spurious value is behaviourally equivalent to "no
+match" already. Validating them would require a DB round-trip per request
+for a case that produces the correct (empty) answer anyway.
+
+### `ClassLength` cop disabled at file level
+
+`PayAnalytics` runs ~195 lines against a cop cap of 100. The bulk of the file
+is two SQL heredocs (`UNCONVERTIBLE_SQL`, `AGGREGATE_SQL`) — string constants,
+not Ruby logic. A prior refactor extracted them into a nested
+`PayAnalytics::SQL` module in a separate file, which triggered Zeitwerk
+autoload failure (`Sql` vs. `SQL` camelization) and split closely-related SQL
+across two files for no observable benefit. Rolled back and disabled the cop
+at the file level with an explanatory comment. Method-level cops
+(`MethodLength`, `AbcSize`, `CyclomaticComplexity`) remain in force.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a
