@@ -6,6 +6,7 @@ Rails.application.routes.draw do
 
   resources :employees, only: %i[index show create update]
   post '/imports/employees', to: 'employee_imports#create'
+  get '/analytics/pay', to: 'analytics#pay'
 
   post '/probes/write', to: 'probes#write' if Rails.env.test?
 end
