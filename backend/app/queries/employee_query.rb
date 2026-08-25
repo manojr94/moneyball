@@ -29,13 +29,13 @@ class EmployeeQuery
     rel = Employee.includes(:department, :country)
     rel = apply_filters(rel)
     rel = apply_cursor(rel)
-    rel.order("#{@sort_col} ASC, employees.id ASC").limit(@per_page)
+    rel.order("#{@sort_col} ASC, employees.id ASC").limit(@per_page + 1)
   end
 
   def next_cursor(employees)
-    return nil if employees.size < @per_page
+    return nil unless employees.size > @per_page
 
-    last = employees.last
+    last = employees[@per_page - 1]
     encode_cursor(sort_value_for(last), last.id)
   end
 
@@ -71,6 +71,7 @@ class EmployeeQuery
     when 'employee_number' then employee.employee_number
     when 'last_name'       then employee.last_name
     when 'hire_date'       then employee.hire_date.to_s
+    else raise ArgumentError, "unhandled sort key: #{@sort_key}"
     end
   end
 
@@ -84,7 +85,7 @@ class EmployeeQuery
     parsed = JSON.parse(Base64.strict_decode64(str))
     raise ArgumentError unless parsed.is_a?(Array) && parsed.size == 2
 
-    parsed
+    [parsed[0], Integer(parsed[1])]
   rescue StandardError
     nil
   end

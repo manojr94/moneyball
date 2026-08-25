@@ -6,15 +6,15 @@ class EmployeesController < ApplicationController
     query = EmployeeQuery.new(query_params)
     return render json: { error: query.error }, status: :unprocessable_content unless query.valid?
 
-    employees = query.call
+    employees = query.call.to_a
     render json: {
-      data: employees.map { |e| EmployeeSerializer.render(e) },
+      data: employees.first(query.per_page).map { |e| EmployeeSerializer.render(e) },
       meta: { next_cursor: query.next_cursor(employees), per_page: query.per_page }
     }
   end
 
   def show
-    authorize!(:read, policy_class: EmployeePolicy)
+    authorize!(:read, @employee, policy_class: EmployeePolicy)
     render json: EmployeeSerializer.render(@employee)
   end
 
@@ -29,7 +29,7 @@ class EmployeesController < ApplicationController
   end
 
   def update
-    authorize!(:write, policy_class: EmployeePolicy)
+    authorize!(:write, @employee, policy_class: EmployeePolicy)
     if @employee.update(employee_params)
       render json: EmployeeSerializer.render(@employee)
     else

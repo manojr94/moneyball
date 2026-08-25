@@ -194,6 +194,39 @@ RSpec.describe 'Employees API', type: :request do
         expect(response).to have_http_status(:ok)
         expect(response.parsed_body['data'].size).to eq(3)
       end
+
+      it 'returns nil next_cursor when the last page is exactly per_page records' do
+        get '/employees', params: { per_page: 5 }, headers: viewer_headers
+        first_cursor = response.parsed_body['meta']['next_cursor']
+        expect(first_cursor).to be_present
+
+        get '/employees', params: { per_page: 5, cursor: first_cursor }, headers: viewer_headers
+        expect(response.parsed_body['data'].size).to eq(5)
+        expect(response.parsed_body['meta']['next_cursor']).to be_nil
+      end
+    end
+
+    describe 'pagination combined with filters' do
+      before do
+        Employee.delete_all
+        5.times { create(:employee, department: dept_eng, country_code: 'US', status: 'active') }
+        3.times { create(:employee, department: dept_hr,  country_code: 'DE', status: 'inactive') }
+      end
+
+      it 'walks all pages of a filtered set without duplicates or gaps' do
+        all_ids = []
+        cursor  = nil
+        loop do
+          get '/employees', params: { status: 'active', per_page: 2, cursor: cursor }.compact,
+                            headers: viewer_headers
+          body = response.parsed_body
+          all_ids += body['data'].pluck('id')
+          cursor = body['meta']['next_cursor']
+          break unless cursor
+        end
+        expect(all_ids.uniq.size).to eq(5)
+        expect(all_ids.size).to eq(5)
+      end
     end
   end
 
@@ -349,6 +382,17 @@ RSpec.describe 'Employees API', type: :request do
             params: { employee: { terminated_on: Time.zone.today.to_s } },
             headers: admin_headers
       expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it 'clears terminated_on when re-activating a terminated employee' do
+      terminated = create(:employee, status: 'terminated', terminated_on: '2024-01-01')
+      patch "/employees/#{terminated.id}",
+            params: { employee: { status: 'active' } },
+            headers: admin_headers
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body['status']).to eq('active')
+      expect(response.parsed_body['terminated_on']).to be_nil
+      expect(terminated.reload.terminated_on).to be_nil
     end
   end
 end
