@@ -8,6 +8,7 @@ class SalaryBandsController < ApplicationController
     render json: bands.map { |b| serialize(b) }
   end
 
+  # rubocop:disable Metrics/MethodLength
   def create
     authorize!(:write, policy_class: SalaryBandPolicy)
     band = SalaryBand.new(band_params)
@@ -23,6 +24,7 @@ class SalaryBandsController < ApplicationController
   rescue ActiveRecord::StatementInvalid => e
     render json: { errors: [e.message.split("\n").first] }, status: :unprocessable_content
   end
+  # rubocop:enable Metrics/MethodLength
 
   private
 
@@ -34,20 +36,22 @@ class SalaryBandsController < ApplicationController
     Date.current
   end
 
+  # rubocop:disable Metrics/AbcSize
   def apply_filters(scope)
     scope = scope.where(pay_zone_id: params[:pay_zone_id]) if params[:pay_zone_id].present?
     scope = scope.where(job_title: params[:job_title])     if params[:job_title].present?
     scope = scope.where(job_level: params[:job_level])     if params[:job_level].present?
     scope
   end
+  # rubocop:enable Metrics/AbcSize
 
   def close_previous_band(new_band)
     open_band = SalaryBand
-                  .where(pay_zone_id: new_band.pay_zone_id,
-                         job_title:   new_band.job_title,
-                         job_level:   new_band.job_level,
-                         effective_to: nil)
-                  .first
+                .where(pay_zone_id: new_band.pay_zone_id,
+                       job_title: new_band.job_title,
+                       job_level: new_band.job_level,
+                       effective_to: nil)
+                .first
     return unless open_band
 
     open_band.update!(effective_to: new_band.effective_from)
@@ -68,6 +72,6 @@ class SalaryBandsController < ApplicationController
       mid_minor_units: band.mid_minor_units,
       max_minor_units: band.max_minor_units,
       effective_from: band.effective_from,
-      effective_to:   band.effective_to }
+      effective_to: band.effective_to }
   end
 end

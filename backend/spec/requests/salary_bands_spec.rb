@@ -43,7 +43,7 @@ RSpec.describe 'Salary Bands API', type: :request do
     it 'returns only bands covering today by default' do
       get '/salary_bands', headers: viewer_headers
       ids = response.parsed_body.pluck('id')
-      all_ids = SalaryBand.all.pluck(:id)
+      all_ids = SalaryBand.pluck(:id)
       covering_ids = SalaryBand.covering(Date.current).pluck(:id)
       expect(ids).to match_array(covering_ids)
       expect(ids.length).to be < all_ids.length
@@ -119,12 +119,12 @@ RSpec.describe 'Salary Bands API', type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
-    context 'auto-close previous open band' do
+    context 'when auto-closing the previous open band' do
       let!(:existing) do
         create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L3',
-               currency: 'USD', min_minor_units: 70_000_00,
-               mid_minor_units: 90_000_00, max_minor_units: 120_000_00,
-               effective_from: Date.new(2023, 1, 1), effective_to: nil)
+                             currency: 'USD', min_minor_units: 70_000_00,
+                             mid_minor_units: 90_000_00, max_minor_units: 120_000_00,
+                             effective_from: Date.new(2023, 1, 1), effective_to: nil)
       end
 
       it 'closes the previous open band and creates the new one' do
@@ -141,9 +141,9 @@ RSpec.describe 'Salary Bands API', type: :request do
 
     it 'returns 422 when a band with the same (zone, title, level, effective_from) exists' do
       create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L3',
-             currency: 'USD', min_minor_units: 70_000_00, mid_minor_units: 90_000_00,
-             max_minor_units: 120_000_00, effective_from: Date.new(2024, 1, 1),
-             effective_to: nil)
+                           currency: 'USD', min_minor_units: 70_000_00, mid_minor_units: 90_000_00,
+                           max_minor_units: 120_000_00, effective_from: Date.new(2024, 1, 1),
+                           effective_to: nil)
       post '/salary_bands', params: valid_params, as: :json, headers: admin_headers
       expect(response).to have_http_status(:unprocessable_content)
     end

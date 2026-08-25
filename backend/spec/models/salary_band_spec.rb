@@ -136,17 +136,17 @@ RSpec.describe SalaryBand do
   describe 'band changed mid-period' do
     it 'creates two adjacent windows and resolver picks the correct one' do
       old_band = create(:salary_band, pay_zone: zone, job_title: 'Manager', job_level: 'L5',
-                        effective_from: Date.new(2024, 1, 1),
-                        effective_to:   Date.new(2025, 1, 1),
-                        min_minor_units: 80_000_00,
-                        mid_minor_units: 100_000_00,
-                        max_minor_units: 130_000_00)
+                                      effective_from: Date.new(2024, 1, 1),
+                                      effective_to: Date.new(2025, 1, 1),
+                                      min_minor_units: 80_000_00,
+                                      mid_minor_units: 100_000_00,
+                                      max_minor_units: 130_000_00)
       new_band = create(:salary_band, pay_zone: zone, job_title: 'Manager', job_level: 'L5',
-                        effective_from: Date.new(2025, 1, 1),
-                        effective_to:   nil,
-                        min_minor_units: 90_000_00,
-                        mid_minor_units: 110_000_00,
-                        max_minor_units: 140_000_00)
+                                      effective_from: Date.new(2025, 1, 1),
+                                      effective_to: nil,
+                                      min_minor_units: 90_000_00,
+                                      mid_minor_units: 110_000_00,
+                                      max_minor_units: 140_000_00)
 
       scope = described_class.covering(Date.new(2024, 6, 1))
                              .where(pay_zone: zone, job_title: 'Manager', job_level: 'L5')
@@ -164,7 +164,7 @@ RSpec.describe SalaryBand do
   describe 'overlap constraint' do
     before do
       create(:salary_band, pay_zone: zone, job_title: 'Analyst', job_level: 'L3',
-             effective_from: Date.new(2024, 1, 1), effective_to: nil)
+                           effective_from: Date.new(2024, 1, 1), effective_to: nil)
     end
 
     it 'rejects an overlapping open-ended band for the same (zone, title, level)' do

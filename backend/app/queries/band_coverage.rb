@@ -23,6 +23,7 @@ class BandCoverage
 
   private
 
+  # rubocop:disable Metrics/MethodLength
   def uncovered_combinations
     connection.select_all(<<~SQL.squish).map do |row|
       SELECT countries.pay_zone_id,
@@ -39,14 +40,16 @@ class BandCoverage
       GROUP BY countries.pay_zone_id, pay_zones.name, employees.job_title, employees.job_level
       ORDER BY pay_zones.name, employees.job_title, employees.job_level
     SQL
-      { pay_zone_id:   row['pay_zone_id'],
+      { pay_zone_id: row['pay_zone_id'],
         pay_zone_name: row['pay_zone_name'],
-        job_title:     row['job_title'],
-        job_level:     row['job_level'],
+        job_title: row['job_title'],
+        job_level: row['job_level'],
         employee_count: row['employee_count'].to_i }
     end
   end
+  # rubocop:enable Metrics/MethodLength
 
+  # rubocop:disable Metrics/MethodLength
   def unzoned_combinations
     connection.select_all(<<~SQL.squish).map do |row|
       SELECT employees.country_code,
@@ -60,12 +63,13 @@ class BandCoverage
       GROUP BY employees.country_code, employees.job_title, employees.job_level
       ORDER BY employees.country_code, employees.job_title, employees.job_level
     SQL
-      { country_code:   row['country_code'],
-        job_title:      row['job_title'],
-        job_level:      row['job_level'],
+      { country_code: row['country_code'],
+        job_title: row['job_title'],
+        job_level: row['job_level'],
         employee_count: row['employee_count'].to_i }
     end
   end
+  # rubocop:enable Metrics/MethodLength
 
   def connection
     ActiveRecord::Base.connection

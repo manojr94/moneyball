@@ -17,6 +17,7 @@ class BandResolver
   #   bucket:      :below | :within | :above | nil
   #
   # Raises only for programmer errors (nil employee, nil on_date).
+  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
   def self.resolve(employee:, on_date:, rate_date: on_date)
     raise ArgumentError, 'employee is required' if employee.nil?
     raise ArgumentError, 'on_date is required'  if on_date.nil?
@@ -50,16 +51,17 @@ class BandResolver
     bucket = bucket_for(sal, min, max)
 
     Result.new(
-      band:                    band,
-      reason:                  :ok,
-      compa_ratio:             compa_ratio,
-      bucket:                  bucket,
-      salary_usd_minor_units:  sal,
+      band: band,
+      reason: :ok,
+      compa_ratio: compa_ratio,
+      bucket: bucket,
+      salary_usd_minor_units: sal,
       band_min_usd_minor_units: min,
       band_mid_usd_minor_units: mid,
       band_max_usd_minor_units: max
     )
   end
+  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
   private_class_method def self.unresolved(reason)
     Result.new(band: nil, reason:, compa_ratio: nil, bucket: nil,

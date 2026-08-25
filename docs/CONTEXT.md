@@ -638,6 +638,76 @@ across two files for no observable benefit. Rolled back and disabled the cop
 at the file level with an explanatory comment. Method-level cops
 (`MethodLength`, `AbcSize`, `CyclomaticComplexity`) remain in force.
 
+## M8 decisions (2026-08-25)
+
+### `effective_to` mutation carve-out — why not fully append-only
+
+Salary rows are fully immutable: every change is a new row. Exchange rate rows are
+fully immutable: a correction is a new row with a later effective_date. For salary bands,
+the same principle holds for the substantive columns (min/mid/max, currency, title, level,
+zone, effective_from). However, **closing a band** — setting `effective_to` from NULL to a
+later date — is a single-field write that enables adjacent band windows without a query
+rewrite. Alternatives considered:
+
+1. *Pure append-only, derive current band in queries with `ORDER BY effective_from DESC LIMIT 1`.*
+   This works but leaves the old band as an "open" record forever; a query for "the band
+   covering 2027" would pick the old band because no row closes it. Closing it in queries
+   requires a self-join to find the next row's `effective_from`, which is O(N) per lookup.
+
+2. *Two-step client protocol — client provides `effective_to` on the old band explicitly.*
+   Forces callers to know the old row's ID, making `POST /salary_bands` non-atomic without
+   a transaction on the client. The auto-close in the controller keeps the protocol simple
+   and atomic.
+
+The carve-out is narrow: only `effective_to` moving from NULL to a date > `effective_from`.
+A `before_update` guard enforces this; any other column change raises `RecordNotSaved`.
+`update_all` bypasses the guard (standard Rails limitation), the same gap documented for
+`exchange_rates` and `salaries`.
+
+### GIST exclusion constraint for non-overlapping band windows
+
+Two `salary_bands` rows for the same `(pay_zone_id, job_title, job_level)` must not have
+overlapping `[effective_from, effective_to)` windows. Enforced with a PostgreSQL
+`EXCLUDE USING gist (... WITH =, daterange(effective_from, effective_to, '[)') WITH &&)`.
+
+The `btree_gist` extension is required to use equality (`=`) on integer and string columns
+inside a GIST index. The constraint handles `effective_to IS NULL` gracefully: PostgreSQL
+treats `daterange(d, NULL, '[)')` as an open-ended range `[d, ∞)`, so an existing open band
+and a new open band for the same key are correctly rejected as overlapping.
+
+A partial unique index would not serve here because uniqueness would not catch overlapping
+closed windows; the exclusion constraint checks the geometric intersection of date ranges.
+
+### Bucket boundary inclusivity
+
+`:below` = salary_usd < band_min_usd (exclusive lower bound).
+`:within` = band_min_usd ≤ salary_usd ≤ band_max_usd (inclusive on both ends).
+`:above` = salary_usd > band_max_usd (exclusive upper bound).
+
+"Inclusive on both endpoints for within" matches the typical HR interpretation: an employee
+exactly at the bottom of the range is not underpaid, and one exactly at the top is not
+overpaid. The integer comparison is deterministic because we round to integer USD minor
+units before comparing.
+
+### `BandResolver::Result` struct shape
+
+A `Struct` with keyword_init: true rather than a plain hash. This makes the return value
+self-documenting and prevents typo'd key access. The `reason` field is a symbol
+(`:ok | :no_salary | :unzoned_country | :no_band | :no_rate`) rather than a boolean
+`resolved?`, because callers need to distinguish between the failure modes (e.g. the
+coverage report surfaces unzoned separately from no_band). The `compa_ratio` field is
+an unrounded BigDecimal; presenters round to 2dp.
+
+### Seed band choice
+
+Six bands (Engineering L3/L5 × NA/EMEA/APAC) in three currencies (USD, EUR, JPY). This
+exercises the mixed-currency compa-ratio path without ballooning to hundreds of rows.
+Designer L4 is intentionally left without a band so the coverage report is non-empty from
+a fresh seed. `find_or_create_by!` on `(pay_zone_id, job_title, job_level, effective_from)`
+makes the seed idempotent.
+
+---
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a

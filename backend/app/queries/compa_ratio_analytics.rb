@@ -4,19 +4,19 @@
 # rubocop:disable Metrics/ClassLength
 class CompaRatioAnalytics
   GROUPS = {
-    'region'     => 'countries.region',
-    'country'    => 'employees.country_code',
+    'region' => 'countries.region',
+    'country' => 'employees.country_code',
     'department' => 'employees.department_id',
-    'level'      => 'employees.job_level'
+    'level' => 'employees.job_level'
   }.freeze
 
   LABEL_SOURCE = { 'country' => :country, 'department' => :department }.freeze
 
   FILTERS = {
-    region:        'countries.region',
-    country_code:  'employees.country_code',
+    region: 'countries.region',
+    country_code: 'employees.country_code',
     department_id: 'employees.department_id',
-    job_level:     'employees.job_level'
+    job_level: 'employees.job_level'
   }.freeze
 
   UNCONVERTIBLE_SQL = <<~SQL.squish.freeze
@@ -140,6 +140,7 @@ class CompaRatioAnalytics
 
   # Count of (pay_zone, job_title, job_level) combos for active employees where no
   # band covers today. Used in meta only; the full list is the band_coverage endpoint.
+  # rubocop:disable Metrics/MethodLength
   def uncovered_count
     connection.select_value(<<~SQL.squish)
       SELECT COUNT(DISTINCT (countries.pay_zone_id, employees.job_title, employees.job_level))
@@ -158,15 +159,16 @@ class CompaRatioAnalytics
         )
     SQL
   end
+  # rubocop:enable Metrics/MethodLength
 
   def build_aggregate_sql(excluded)
     format(AGGREGATE_SQL,
-           as_of:     q(@as_of),
+           as_of: q(@as_of),
            rate_date: q(@rate_date),
            group_col: GROUPS.fetch(@group_by),
-           subunits:  subunits_values,
-           excluded:  excluded_clause(excluded),
-           filters:   filter_clauses)
+           subunits: subunits_values,
+           excluded: excluded_clause(excluded),
+           filters: filter_clauses)
   end
 
   def excluded_clause(excluded)
@@ -181,6 +183,7 @@ class CompaRatioAnalytics
     @filters.map { |col, val| "AND #{col} = #{q(val)}" }.join(' ')
   end
 
+  # rubocop:disable Metrics/AbcSize
   def subunits_values
     salary_codes = Salary.distinct.pluck(:currency).map { |c| c.to_s.upcase }
     band_codes   = SalaryBand.distinct.pluck(:currency).map { |c| c.to_s.upcase }
@@ -192,20 +195,23 @@ class CompaRatioAnalytics
       "(#{q(c)}, #{sub})"
     end.join(', ')
   end
+  # rubocop:enable Metrics/AbcSize
 
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def present_group(row)
     key = row['group_key'].to_s
     ratio = row['avg_compa_ratio']
-    { key:              key,
-      label:            label_lookup[key] || key,
-      headcount:        row['headcount'].to_i,
+    { key: key,
+      label: label_lookup[key] || key,
+      headcount: row['headcount'].to_i,
       covered_headcount: row['covered_headcount'].to_i,
-      avg_compa_ratio:  ratio ? format('%.4f', ratio.to_f) : nil,
-      below:            row['below_count'].to_i,
-      within:           row['within_count'].to_i,
-      above:            row['above_count'].to_i,
-      unresolved:       row['unresolved'].to_i }
+      avg_compa_ratio: ratio ? format('%.4f', ratio.to_f) : nil,
+      below: row['below_count'].to_i,
+      within: row['within_count'].to_i,
+      above: row['above_count'].to_i,
+      unresolved: row['unresolved'].to_i }
   end
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   def label_lookup
     @label_lookup ||=

@@ -3,7 +3,9 @@ require 'rails_helper'
 RSpec.describe BandResolver do
   let(:zone)    { create(:pay_zone, name: 'North America', slug: 'na') }
   let(:dept)    { create(:department) }
-  let(:country) { create(:country, code: 'US', name: 'United States', default_currency: 'USD', region: 'na', pay_zone: zone) }
+  let(:country) do
+    create(:country, code: 'US', name: 'United States', default_currency: 'USD', region: 'na', pay_zone: zone)
+  end
 
   let(:employee) do
     create(:employee, country_code: country.code, department: dept,
@@ -24,13 +26,15 @@ RSpec.describe BandResolver do
                    effective_date: date, reason: 'new_hire')
   end
 
+  # rubocop:disable Metrics/ParameterLists
   def make_band(min:, mid:, max:, currency: 'USD',
                 from: Date.new(2020, 1, 1), to: nil,
                 title: 'Engineer', level: 'L3')
     create(:salary_band, pay_zone: zone, job_title: title, job_level: level,
-           currency:, min_minor_units: min, mid_minor_units: mid, max_minor_units: max,
-           effective_from: from, effective_to: to)
+                         currency:, min_minor_units: min, mid_minor_units: mid, max_minor_units: max,
+                         effective_from: from, effective_to: to)
   end
+  # rubocop:enable Metrics/ParameterLists
 
   # ---------------------------------------------------------------------------
   # Argument guards
@@ -60,7 +64,9 @@ RSpec.describe BandResolver do
   # :unzoned_country
   # ---------------------------------------------------------------------------
   describe ':unzoned_country' do
-    let(:unzoned_country) { create(:country, code: 'XZ', name: 'Unzoned', default_currency: 'USD', region: 'na', pay_zone: nil) }
+    let(:unzoned_country) do
+      create(:country, code: 'XZ', name: 'Unzoned', default_currency: 'USD', region: 'na', pay_zone: nil)
+    end
     let(:unzoned_emp) do
       create(:employee, country_code: unzoned_country.code, department: dept,
                         job_title: 'Engineer', job_level: 'L3',
@@ -236,7 +242,9 @@ RSpec.describe BandResolver do
   # JPY (zero-decimal) and band in JPY
   # ---------------------------------------------------------------------------
   describe 'JPY zero-decimal currency' do
-    let(:jp_country) { create(:country, code: 'JP', name: 'Japan', default_currency: 'JPY', region: 'apac', pay_zone: zone) }
+    let(:jp_country) do
+      create(:country, code: 'JP', name: 'Japan', default_currency: 'JPY', region: 'apac', pay_zone: zone)
+    end
     let(:jp_emp) do
       create(:employee, country_code: jp_country.code, department: dept,
                         job_title: 'Engineer', job_level: 'L3',

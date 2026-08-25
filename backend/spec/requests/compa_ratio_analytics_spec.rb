@@ -12,13 +12,13 @@ RSpec.describe 'GET /analytics/compa_ratio', type: :request do
   before do
     create(:country, code: 'US', name: 'US', default_currency: 'USD', region: 'na', pay_zone: zone)
     e = create(:employee, employee_number: 'CR01', country_code: 'US', department: dept,
-               job_title: 'Engineer', job_level: 'L3', hire_date: '2020-01-01',
-               email: 'cr01@example.com')
+                          job_title: 'Engineer', job_level: 'L3', hire_date: '2020-01-01',
+                          email: 'cr01@example.com')
     Salary.create!(employee: e, amount_minor_units: 100_000_00, currency: 'USD',
                    effective_date: '2020-01-01', reason: 'new_hire')
     create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L3',
-           min_minor_units: 80_000_00, mid_minor_units: 100_000_00, max_minor_units: 130_000_00,
-           effective_from: Date.new(2020, 1, 1))
+                         min_minor_units: 80_000_00, mid_minor_units: 100_000_00, max_minor_units: 130_000_00,
+                         effective_from: Date.new(2020, 1, 1))
   end
 
   it 'returns 401 without a token' do

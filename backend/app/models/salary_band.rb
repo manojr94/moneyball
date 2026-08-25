@@ -31,7 +31,7 @@ class SalaryBand < ApplicationRecord
 
   def min_mid_max_ordering
     return unless min_minor_units && mid_minor_units && max_minor_units
-    return if min_minor_units <= mid_minor_units && mid_minor_units <= max_minor_units
+    return if mid_minor_units.between?(min_minor_units, max_minor_units)
 
     errors.add(:base, 'min must be <= mid and mid must be <= max')
   end

@@ -8,15 +8,19 @@ RSpec.describe 'GET /analytics/band_coverage', type: :request do
 
   let(:zone)   { create(:pay_zone, name: 'North America', slug: 'na-bc') }
   let(:dept)   { create(:department) }
-  let(:us)     { create(:country, code: 'US', name: 'United States', default_currency: 'USD', region: 'na', pay_zone: zone) }
-  let(:unzoned_country) { create(:country, code: 'XZ', name: 'Unzoned', default_currency: 'USD', region: 'na', pay_zone: nil) }
+  let(:us)     do
+    create(:country, code: 'US', name: 'United States', default_currency: 'USD', region: 'na', pay_zone: zone)
+  end
+  let(:unzoned_country) do
+    create(:country, code: 'XZ', name: 'Unzoned', default_currency: 'USD', region: 'na', pay_zone: nil)
+  end
 
   def employ(country:, title: 'Engineer', level: 'L3', status: 'active', number: nil)
     n = number || "BC#{SecureRandom.hex(3).upcase}"
     create(:employee, employee_number: n, country_code: country.code,
-           department: dept, job_title: title, job_level: level,
-           hire_date: 1.year.ago.to_date, status:,
-           email: "#{n.downcase}@example.com")
+                      department: dept, job_title: title, job_level: level,
+                      hire_date: 1.year.ago.to_date, status:,
+                      email: "#{n.downcase}@example.com")
   end
 
   it 'returns 401 without a token' do
@@ -46,11 +50,11 @@ RSpec.describe 'GET /analytics/band_coverage', type: :request do
   # ---------------------------------------------------------------------------
   describe 'uncovered combinations' do
     before do
-      us  # ensure country row exists
+      us # ensure country row exists
       # Band covers Engineer L3 only
       create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L3',
-             min_minor_units: 80_000_00, mid_minor_units: 100_000_00,
-             max_minor_units: 130_000_00, effective_from: 2.years.ago.to_date)
+                           min_minor_units: 80_000_00, mid_minor_units: 100_000_00,
+                           max_minor_units: 130_000_00, effective_from: 2.years.ago.to_date)
 
       employ(country: us, title: 'Engineer', level: 'L3')  # covered
       employ(country: us, title: 'Manager',  level: 'L5')  # uncovered
@@ -88,7 +92,7 @@ RSpec.describe 'GET /analytics/band_coverage', type: :request do
   # ---------------------------------------------------------------------------
   describe 'unzoned employees' do
     before do
-      unzoned_country  # ensure country row exists
+      unzoned_country # ensure country row exists
       employ(country: unzoned_country, title: 'Engineer', level: 'L3')
     end
 
@@ -138,8 +142,8 @@ RSpec.describe 'GET /analytics/band_coverage', type: :request do
   it 'returns empty arrays when all active employees have bands' do
     us
     create(:salary_band, pay_zone: zone, job_title: 'Engineer', job_level: 'L3',
-           min_minor_units: 80_000_00, mid_minor_units: 100_000_00, max_minor_units: 130_000_00,
-           effective_from: 2.years.ago.to_date)
+                         min_minor_units: 80_000_00, mid_minor_units: 100_000_00, max_minor_units: 130_000_00,
+                         effective_from: 2.years.ago.to_date)
     employ(country: us)
     get '/analytics/band_coverage', headers: viewer_headers
     body = response.parsed_body

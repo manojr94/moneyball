@@ -4,6 +4,8 @@ RSpec.describe CompaRatioAnalytics do
   let(:zone_na)   { create(:pay_zone, name: 'North America', slug: 'na-cr') }
   let(:zone_emea) { create(:pay_zone, name: 'Europe', slug: 'emea-cr') }
   let(:dept)      { create(:department, name: 'Engineering', slug: 'eng-cr') }
+  let(:as_of)     { '2024-06-01' }
+  let(:rate_date) { '2024-06-01' }
 
   before do
     create(:country, code: 'US', name: 'United States', default_currency: 'USD',
@@ -13,25 +15,26 @@ RSpec.describe CompaRatioAnalytics do
     ExchangeRate.create!(currency: 'EUR', rate_to_usd: '1.10', effective_date: Date.new(2024, 1, 1))
   end
 
+  # rubocop:disable Metrics/ParameterLists
   def employ(number:, country:, amount:, currency: 'USD', level: 'L3',
              title: 'Engineer', hired: Date.new(2020, 1, 1))
     e = create(:employee, employee_number: number, country_code: country,
-               department: dept, job_title: title, job_level: level, hire_date: hired,
-               email: "#{number.downcase}@example.com")
+                          department: dept, job_title: title, job_level: level, hire_date: hired,
+                          email: "#{number.downcase}@example.com")
     Salary.create!(employee: e, amount_minor_units: amount, currency:,
                    effective_date: hired, reason: 'new_hire')
     e
   end
+  # rubocop:enable Metrics/ParameterLists
 
-  def make_band(zone:, title: 'Engineer', level: 'L3', min:, mid:, max:,
+  # rubocop:disable Metrics/ParameterLists
+  def make_band(zone:, min:, mid:, max:, title: 'Engineer', level: 'L3',
                 currency: 'USD', from: Date.new(2020, 1, 1), to: nil)
     create(:salary_band, pay_zone: zone, job_title: title, job_level: level,
-           min_minor_units: min, mid_minor_units: mid, max_minor_units: max,
-           currency:, effective_from: from, effective_to: to)
+                         min_minor_units: min, mid_minor_units: mid, max_minor_units: max,
+                         currency:, effective_from: from, effective_to: to)
   end
-
-  let(:as_of)     { '2024-06-01' }
-  let(:rate_date) { '2024-06-01' }
+  # rubocop:enable Metrics/ParameterLists
 
   # ---------------------------------------------------------------------------
   # Parameter validation (mirrors PayAnalytics)
@@ -147,8 +150,8 @@ RSpec.describe CompaRatioAnalytics do
     before do
       create(:country, code: 'GB', name: 'UK', default_currency: 'GBP',
                        region: 'emea', pay_zone: zone_emea)
-      employ(number: 'CR6', country: 'US', amount: 100_000_00)   # USD, has rate
-      employ(number: 'CR7', country: 'GB', amount: 90_000_00, currency: 'GBP')  # no GBP rate
+      employ(number: 'CR6', country: 'US', amount: 100_000_00) # USD, has rate
+      employ(number: 'CR7', country: 'GB', amount: 90_000_00, currency: 'GBP') # no GBP rate
       make_band(zone: zone_na, min: 80_000_00, mid: 100_000_00, max: 130_000_00)
     end
 
