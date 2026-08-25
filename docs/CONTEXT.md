@@ -387,6 +387,127 @@ before creating their own. `Employee.delete_all` (direct SQL) is used rather tha
 (which calls each record's `before_destroy` callback — blocked by the hard-delete guard). This is the
 same bypass DatabaseCleaner uses for test teardown; no application code takes this path.
 
+## M6 decisions (2026-08-25)
+
+### CSV only in v1; XLSX deferred
+
+The implementation plan lists CSV/XLSX. M6 ships CSV only. XLSX would require a
+new dependency (`roo` or `creek`) and streams zip/XML rather than lines, which is
+a genuinely different code path. The practical Excel-export flow is "Save As →
+CSV", which is what HR does today with the existing spreadsheets. When XLSX
+becomes a hard requirement, the ImportEmployees service can accept a different
+parser without changing the row-processing pipeline.
+
+### Dry-run is commit-with-rollback
+
+The service always wraps row processing in a single transaction. Dry-run mode
+adds a mandatory `raise ActiveRecord::Rollback` at the end; commit mode raises
+the same rollback only if any error was recorded. Both modes therefore run
+every validation, every callback, and every uniqueness check against the state
+that would exist mid-import — so a dry-run preview cannot succeed on a case
+that a commit would reject. This is the "preview matches commit" guarantee
+called out in manual test 5.6, and it is structural rather than a paired code
+path we have to keep in sync.
+
+*Trade-off:* dry-run pays the write cost (INSERTs happen, then roll back).
+For a 10k-row file this is a few seconds of wasted work, which we accept as
+the price of the invariant.
+
+### Row loop runs to completion; commit rolls back at the end
+
+If row 42 fails validation, rows 43–10,000 are still processed so the response
+can list every problem in one upload. On commit mode, the transaction rolls
+back at the end if any errors were recorded — no partial commit is possible.
+
+*Alternative considered:* halt on first error. Rejected because it forces HR
+to fix-and-re-upload one error at a time, which is exactly the manual toil the
+import is supposed to replace.
+
+### Errors capped at 100 in the response
+
+A 10k-row file with pervasive errors could produce a multi-megabyte response
+otherwise. The service continues processing past the cap so `rows_invalid`
+stays accurate; only the `errors` array stops accumulating. Configurable via
+`ImportEmployees::MAX_ERRORS`.
+
+### Countries auto-create; departments do not
+
+Countries follow the M1 invariant: an unknown `country_code` in an import row
+creates a `Country` flagged `needs_review` and the row saves. Departments do
+not have this rule — they are a deliberately curated list (~10–20 rows at
+ACME's scale), and typos in import files should surface as errors rather than
+silently spawning `Enginering` / `enginering` / `Enegineering` rows. Unknown
+department names are rejected at row validation.
+
+### Header-based parsing; column order agnostic; extra columns ignored
+
+The parser resolves fields by header name, not by position. This survives
+Excel exports that reorder columns and files with extra columns (`notes`,
+`cost_center`) that we don't consume. Missing required columns fail the
+entire file before any row is processed. BOM bytes at the file start are
+stripped so Excel-on-Windows exports parse correctly.
+
+### `department_name` (not `department_id`) in the CSV schema
+
+HR exports from spreadsheets carry department *names*, not database IDs.
+Requiring an id would force a manual lookup step before every import. Names
+are matched case-insensitively (`Engineering` == `engineering`). The
+department cache in `ImportState` reduces 10k row imports to one DB query per
+distinct department name.
+
+### Salary is optional per row; `Money.from_amount` handles minor units
+
+If any `salary_*` column is populated on a row, salary_amount and
+salary_currency are both required (effective_date defaults to hire_date, and
+reason is hard-coded to `new_hire`). Amounts are supplied as major-unit
+decimals ("80000" or "80000.00"); conversion to minor units goes through
+`Money.from_amount(BigDecimal(...), currency).fractional`, which correctly
+handles JPY (exponent 0), USD (exponent 2), and KWD (exponent 3) without the
+service knowing which is which. Thousands-separator commas are stripped.
+
+### MAX_ROWS = 10,000
+
+Matches the implementation plan's scale target. A larger cap invites
+long-running requests that hold a transaction open for minutes; splitting
+files is a small ask compared to timing out mid-import. Anything larger goes
+back to the operator to split — the message names the cap so the failure is
+self-explanatory.
+
+### Multipart file upload with a `csv` string fallback
+
+`POST /imports/employees` accepts either `params[:file]` (standard multipart
+upload from a browser or `curl -F`) or `params[:csv]` (a raw string in a JSON
+body). The string form exists for scripts and tests that don't want to
+construct a multipart body. Both paths funnel into the same service call.
+
+### `dry_run` defaults to true
+
+A missing, empty, or unrecognized `dry_run` param means preview. Only the
+literal string `"false"` triggers a commit. This is a "safe by default"
+choice — a client that forgets the flag gets a preview, not a surprise 10k-
+row insertion.
+
+### HTTP status codes
+
+- Dry-run always returns **200** regardless of row validity (the preview
+  itself succeeded; errors are data in the body, not a failure of the
+  request).
+- Commit with all rows valid returns **201 Created**.
+- Commit with any row error returns **422 Unprocessable Content** and rolls
+  back.
+- Missing file, missing required columns, or a malformed CSV returns **422**
+  before any row processing.
+
+### `ImportEmployees` split into `Parser`, `RowImporter`, `ImportState`, `RowAttrs`
+
+The outer class orchestrates the transaction and returns the `Result`. Row
+parsing and header validation live in `Parser`. Per-row logic (extraction,
+duplicate check, employee save, optional salary) lives in `RowImporter`.
+Cross-row bookkeeping (counts, seen-so-far maps, error cap, department
+cache) lives in `ImportState`. Splitting kept each unit within the standard
+RuboCop metrics without loosening the limits, and each collaborator has one
+reason to change.
+
 ## Working agreements
 
 - **Nothing is pushed to GitHub without explicit approval.** The commit history is a
