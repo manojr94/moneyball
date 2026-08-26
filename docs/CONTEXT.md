@@ -813,6 +813,14 @@ The "Sort by" dropdown (`last_name` / `hire_date`) was removed and replaced with
 
 React 18 deprecates `defaultProps` on function components. The three analytics sub-tables (`PayTable`, `CompaTable`, `BandCoverageTable`) were updated to use JS default parameters instead (`{ groups = [] }`, `{ data = null }`). No behavior change.
 
+### Three UX gaps deferred to M11.5 (observed during M10 manual QA)
+
+**Salary band create form missing.** The band-coverage report tells an admin to "add a salary band for each uncovered row," but the `BandView` page is read-only — there is no form to do this. Admins can only create bands via direct API calls. Deferred to M11.5 as a new `POST /salary_bands` endpoint + modal form on the Bands page, admin-only, mirroring the raise form pattern.
+
+**Employee list sort limited to 3 columns.** Number, Name, and Hire date are sortable; Department, Title/Level, Country, and Status are not. The backend's `EmployeeQuery::SORT_COLUMNS` needs corresponding entries before the frontend can expose them. Deferred to M11.5 to extend `SORT_COLUMNS` and make all employee-list columns clickable.
+
+**Employee list filter bar is narrow.** Only Status is filterable; the lonely dropdown looks out of place as a "filter bar." Deferred to M11.5 as a filter-icon approach with a panel supporting Status, Department, Country, and Title/Level. Hire date is excluded because point-in-time hire date range queries require cursor redesign.
+
 ---
 
 ## Working agreements
