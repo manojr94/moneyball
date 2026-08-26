@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   resource :session, only: %i[create destroy]
+  resource :registrations, only: [:create]
   get '/me', to: 'me#show'
 
   resources :employees, only: %i[index show create update] do
