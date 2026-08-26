@@ -94,6 +94,12 @@ RSpec.describe 'Employees API', type: :request do
     end
 
     describe 'filter combinations' do
+      before do
+        create(:employee, first_name: 'Dave', last_name: 'Dean',
+                          department: dept_eng, country_code: 'US', status: 'active',
+                          job_title: 'Software Engineer', job_level: 'L4')
+      end
+
       it 'combines status and department filters (AND semantics)' do
         get '/employees', params: { status: 'active', department_id: dept_hr.id },
                           headers: viewer_headers
@@ -106,6 +112,45 @@ RSpec.describe 'Employees API', type: :request do
         data = response.parsed_body['data']
         expect(data.size).to eq(1)
         expect(data.first['first_name']).to eq('Bob')
+      end
+
+      it 'filters by job_title alone' do
+        get '/employees', params: { job_title: 'Software Engineer' }, headers: viewer_headers
+        titles = response.parsed_body['data'].pluck('job_title').uniq
+        expect(titles).to eq(['Software Engineer'])
+      end
+
+      it 'filters by job_level alone' do
+        get '/employees', params: { job_level: 'L4' }, headers: viewer_headers
+        levels = response.parsed_body['data'].pluck('job_level').uniq
+        expect(levels).to eq(['L4'])
+      end
+
+      it 'combines status + department + country (three-way AND)' do
+        get '/employees', params: { status: 'active', department_id: dept_eng.id,
+                                    country_code: 'US' }, headers: viewer_headers
+        data = response.parsed_body['data']
+        expect(data.pluck('status').uniq).to eq(['active'])
+        expect(data.map { |e| e['department']['id'] }.uniq).to eq([dept_eng.id])
+        expect(data.pluck('country_code').uniq).to eq(['US'])
+      end
+
+      it 'combines all five filters and returns matching employees' do
+        get '/employees', params: { status: 'active', department_id: dept_eng.id,
+                                    country_code: 'US', job_title: 'Software Engineer',
+                                    job_level: 'L4' }, headers: viewer_headers
+        data = response.parsed_body['data']
+        expect(data).not_to be_empty
+        data.each do |e|
+          expect(e['status']).to eq('active')
+          expect(e['job_title']).to eq('Software Engineer')
+          expect(e['job_level']).to eq('L4')
+        end
+      end
+
+      it 'returns the full list when no filters are applied' do
+        get '/employees', headers: viewer_headers
+        expect(response.parsed_body['data'].size).to be > 1
       end
     end
 

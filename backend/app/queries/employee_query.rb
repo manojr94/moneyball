@@ -10,16 +10,20 @@ class EmployeeQuery
 
   attr_reader :per_page, :error
 
+  # rubocop:disable Metrics/AbcSize
   def initialize(params = {})
     @status        = params[:status].presence
     @department_id = params[:department_id].presence
     @country_code  = params[:country_code].presence
+    @job_title     = params[:job_title].presence
+    @job_level     = params[:job_level].presence
     @sort_key      = resolve_sort(params[:sort])
     @sort_col      = SORT_COLUMNS[@sort_key]
     @per_page      = clamp_per_page(params[:per_page])
     @cursor        = decode_cursor(params[:cursor])
     @error         = validate_filters(params)
   end
+  # rubocop:enable Metrics/AbcSize
 
   def valid?
     @error.nil?
@@ -51,6 +55,8 @@ class EmployeeQuery
     rel = rel.where(status: @status) if @status
     rel = rel.where(department_id: @department_id) if @department_id
     rel = rel.where(country_code: @country_code) if @country_code
+    rel = rel.where(job_title: @job_title) if @job_title
+    rel = rel.where(job_level: @job_level) if @job_level
     rel
   end
 

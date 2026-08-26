@@ -5,8 +5,10 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { EmployeeListPage } from '../pages/EmployeeListPage'
 import { AuthContext } from '../contexts/AuthContext'
 import * as employeesApi from '../api/employees'
+import * as departmentsApi from '../api/departments'
 
 vi.mock('../api/employees')
+vi.mock('../api/departments')
 
 const adminUser = { id: 1, name: 'Admin', role: 'hr_admin' }
 
@@ -39,6 +41,9 @@ const sampleEmployee = {
 describe('EmployeeListPage', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    departmentsApi.listDepartments.mockResolvedValue([
+      { id: 1, name: 'Engineering', slug: 'engineering' },
+    ])
   })
 
   it('shows a loading spinner while fetching', () => {
@@ -90,12 +95,48 @@ describe('EmployeeListPage', () => {
     expect(screen.getByRole('button', { name: /next/i })).not.toBeDisabled()
   })
 
-  it('refetches when status filter changes', async () => {
-    employeesApi.listEmployees.mockResolvedValue({ data: [], meta: { next_cursor: null } })
-    renderPage()
-    await screen.findByText(/no employees/i)
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /status filter/i }), 'inactive')
-    await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledTimes(2))
+  describe('filter panel', () => {
+    beforeEach(() => {
+      employeesApi.listEmployees.mockResolvedValue({ data: [], meta: { next_cursor: null } })
+    })
+
+    it('panel is closed by default; opens on Filters button click', async () => {
+      renderPage()
+      await screen.findByText(/no employees/i)
+      expect(screen.queryByRole('combobox', { name: /status filter/i })).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: /filters/i }))
+      expect(screen.getByRole('combobox', { name: /status filter/i })).toBeInTheDocument()
+    })
+
+    it('refetches when status filter changes', async () => {
+      renderPage()
+      await screen.findByText(/no employees/i)
+      await userEvent.click(screen.getByRole('button', { name: /filters/i }))
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: /status filter/i }), 'inactive')
+      await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledTimes(2))
+    })
+
+    it('shows active filter count on the button', async () => {
+      renderPage()
+      await screen.findByText(/no employees/i)
+      await userEvent.click(screen.getByRole('button', { name: /filters/i }))
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: /status filter/i }), 'active')
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /filters \(1\)/i })).toBeInTheDocument(),
+      )
+    })
+
+    it('Clear all resets all filters', async () => {
+      renderPage()
+      await screen.findByText(/no employees/i)
+      await userEvent.click(screen.getByRole('button', { name: /filters/i }))
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: /status filter/i }), 'active')
+      await waitFor(() => screen.getByRole('button', { name: /clear all/i }))
+      await userEvent.click(screen.getByRole('button', { name: /clear all/i }))
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: /filters \(/i })).not.toBeInTheDocument(),
+      )
+    })
   })
 
   describe('sortable column headers', () => {
@@ -113,6 +154,23 @@ describe('EmployeeListPage', () => {
       await waitFor(() =>
         expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(
           expect.objectContaining({ sort: 'last_name' }),
+        ),
+      )
+    })
+
+    it('clicking Name header twice switches to descending', async () => {
+      renderPage()
+      await screen.findByText('EMP001')
+      await userEvent.click(screen.getByRole('columnheader', { name: /^name$/i }))
+      await waitFor(() =>
+        expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sort: 'last_name', sort_dir: 'asc' }),
+        ),
+      )
+      await userEvent.click(screen.getByRole('columnheader', { name: /^name$/i }))
+      await waitFor(() =>
+        expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sort: 'last_name', sort_dir: 'desc' }),
         ),
       )
     })
@@ -142,14 +200,13 @@ describe('EmployeeListPage', () => {
     it('active sort column header has indigo chevron; others do not', async () => {
       renderPage()
       await screen.findByText('EMP001')
-      // default sort is last_name — Name header should have the visible chevron
-      const nameHeader = screen.getByRole('columnheader', { name: /name/i })
-      const chevron = nameHeader.querySelector('svg')
-      expect(chevron).toHaveClass('opacity-100')
-      expect(chevron).toHaveClass('text-indigo-600')
-      // Number header chevron is hidden by default
+      // default sort is employee_number — Number header should have the visible chevron
       const numberHeader = screen.getByRole('columnheader', { name: /number/i })
-      expect(numberHeader.querySelector('svg')).toHaveClass('opacity-0')
+      const chevron = numberHeader.querySelector('svg')
+      expect(chevron).toHaveClass('text-indigo-600')
+      // Name header chevron is hidden by default
+      const nameHeader = screen.getByRole('columnheader', { name: /^name$/i })
+      expect(nameHeader.querySelector('svg')).toHaveClass('opacity-0')
     })
 
     it('changing sort resets to page 1', async () => {
@@ -160,7 +217,6 @@ describe('EmployeeListPage', () => {
       await waitFor(() =>
         expect(employeesApi.listEmployees.mock.calls.length).toBeGreaterThan(callsBefore),
       )
-      // cursor must be reset — no cursor param on the new call
       const lastCall = employeesApi.listEmployees.mock.calls.at(-1)[0]
       expect(lastCall.cursor).toBeUndefined()
     })
