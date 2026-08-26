@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   get '/me', to: 'me#show'
 
   resources :departments, only: [:index]
+  resources :pay_zones, only: [:index]
   resources :employees, only: %i[index show create update] do
     resources :salaries, only: %i[index create]
   end
