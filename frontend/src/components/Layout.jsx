@@ -10,9 +10,9 @@ export function Layout() {
   if (!user) return <Navigate to="/login" replace />
 
   return (
-    <div className="app-layout">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Nav />
-      <main className="main-content">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-6 py-8">
         <Outlet />
       </main>
     </div>

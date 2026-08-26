@@ -27,18 +27,20 @@ export function LoginPage() {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h1>Moneyball</h1>
-        <p className="login-subtitle">Salary management</p>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+        <h1 className="text-2xl font-bold text-slate-900 mb-1">Moneyball</h1>
+        <p className="text-sm text-slate-500 mb-6">Salary management</p>
         {error && (
-          <div className="error-message" role="alert">
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800" role="alert">
             {error}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="field">
-            <label htmlFor="email">Email</label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+              Email
+            </label>
             <input
               id="email"
               type="email"
@@ -46,19 +48,27 @@ export function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
-          <div className="field">
-            <label htmlFor="password">Password</label>
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
+              Password
+            </label>
             <input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>

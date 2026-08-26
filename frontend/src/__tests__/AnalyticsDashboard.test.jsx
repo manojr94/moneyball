@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { AnalyticsDashboard } from '../pages/AnalyticsDashboard'
 import { AuthContext } from '../contexts/AuthContext'
+import { TooltipProvider } from '../components/Tooltip'
 import * as analyticsApi from '../api/analytics'
 
 vi.mock('../api/analytics')
@@ -14,7 +15,9 @@ function renderPage(user = adminUser) {
   return render(
     <AuthContext.Provider value={{ user, loading: false, login: vi.fn(), logout: vi.fn() }}>
       <MemoryRouter>
-        <AnalyticsDashboard />
+        <TooltipProvider>
+          <AnalyticsDashboard />
+        </TooltipProvider>
       </MemoryRouter>
     </AuthContext.Provider>,
   )

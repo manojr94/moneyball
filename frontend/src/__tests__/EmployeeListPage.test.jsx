@@ -32,6 +32,7 @@ const sampleEmployee = {
   job_title: 'Engineer',
   job_level: 'L3',
   country_code: 'US',
+  hire_date: '2022-01-01',
   status: 'active',
 }
 
@@ -95,6 +96,74 @@ describe('EmployeeListPage', () => {
     await screen.findByText(/no employees/i)
     await userEvent.selectOptions(screen.getByRole('combobox', { name: /status filter/i }), 'inactive')
     await waitFor(() => expect(employeesApi.listEmployees).toHaveBeenCalledTimes(2))
+  })
+
+  describe('sortable column headers', () => {
+    beforeEach(() => {
+      employeesApi.listEmployees.mockResolvedValue({
+        data: [sampleEmployee],
+        meta: { next_cursor: null },
+      })
+    })
+
+    it('clicking Name header re-fetches with sort: last_name', async () => {
+      renderPage()
+      await screen.findByText('EMP001')
+      await userEvent.click(screen.getByRole('columnheader', { name: /name/i }))
+      await waitFor(() =>
+        expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sort: 'last_name' }),
+        ),
+      )
+    })
+
+    it('clicking Hire date header re-fetches with sort: hire_date', async () => {
+      renderPage()
+      await screen.findByText('EMP001')
+      await userEvent.click(screen.getByRole('columnheader', { name: /hire date/i }))
+      await waitFor(() =>
+        expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sort: 'hire_date' }),
+        ),
+      )
+    })
+
+    it('clicking Number header re-fetches with sort: employee_number', async () => {
+      renderPage()
+      await screen.findByText('EMP001')
+      await userEvent.click(screen.getByRole('columnheader', { name: /number/i }))
+      await waitFor(() =>
+        expect(employeesApi.listEmployees).toHaveBeenLastCalledWith(
+          expect.objectContaining({ sort: 'employee_number' }),
+        ),
+      )
+    })
+
+    it('active sort column header has indigo chevron; others do not', async () => {
+      renderPage()
+      await screen.findByText('EMP001')
+      // default sort is last_name — Name header should have the visible chevron
+      const nameHeader = screen.getByRole('columnheader', { name: /name/i })
+      const chevron = nameHeader.querySelector('svg')
+      expect(chevron).toHaveClass('opacity-100')
+      expect(chevron).toHaveClass('text-indigo-600')
+      // Number header chevron is hidden by default
+      const numberHeader = screen.getByRole('columnheader', { name: /number/i })
+      expect(numberHeader.querySelector('svg')).toHaveClass('opacity-0')
+    })
+
+    it('changing sort resets to page 1', async () => {
+      renderPage()
+      await screen.findByText('EMP001')
+      const callsBefore = employeesApi.listEmployees.mock.calls.length
+      await userEvent.click(screen.getByRole('columnheader', { name: /hire date/i }))
+      await waitFor(() =>
+        expect(employeesApi.listEmployees.mock.calls.length).toBeGreaterThan(callsBefore),
+      )
+      // cursor must be reset — no cursor param on the new call
+      const lastCall = employeesApi.listEmployees.mock.calls.at(-1)[0]
+      expect(lastCall.cursor).toBeUndefined()
+    })
   })
 
   it('shows status badges', async () => {
