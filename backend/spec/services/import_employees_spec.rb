@@ -213,10 +213,11 @@ RSpec.describe ImportEmployees do
     end
 
     it 'records a row error (not a 500) when a concurrent insert wins the unique index' do
-      # Simulates the race: our uniqueness SELECT passes, then the INSERT collides
-      # with a row inserted by another transaction between the check and the write.
+      # Simulates the race: our uniqueness SELECT passes (valid? returns true),
+      # then the batch insert collides with a row another transaction inserted
+      # between the valid? check and the insert_all!.
       body = csv([row('employee_number' => 'RACE', 'email' => 'race@x.com')])
-      allow_any_instance_of(Employee).to receive(:save) # rubocop:disable RSpec/AnyInstance
+      allow(Employee).to receive(:insert_all!)
         .and_raise(ActiveRecord::RecordNotUnique, 'PG::UniqueViolation: employee_number')
       result = described_class.call(body, dry_run: false)
       expect(result.committed).to be(false)
