@@ -525,3 +525,24 @@ never applied unilaterally.
 **Automatable checks should leave.** If a check can be driven reliably by a request spec
 or a browser test, it belongs in the suite, not here. What remains is what needs human
 judgement — which is most of §10, and the reason that section has no pass criteria.
+
+---
+
+## M11.5 — Cleanup, Follow-ups & Evaluator Handoff
+
+| # | Check |
+|---|---|
+| M11.5.1 | Run `bin/rails invitations:generate`. Confirm a URL is printed with a `?token=` param. |
+| M11.5.2 | Open the printed URL in a browser. Confirm the signup form is shown (Name, Email, Password fields). |
+| M11.5.3 | Complete signup with valid name/email/password. Confirm redirect to `/employees` and `hr_admin` role (Import link visible in nav). |
+| M11.5.4 | Try opening the same invitation URL again. Confirm error: "This invitation link is invalid or has already been used." |
+| M11.5.5 | Open `/signup` with no token. Confirm the form is not shown; message explains an invitation link is required. |
+| M11.5.6 | On the login page, confirm the "Have an invitation link? Sign up →" link is present and navigates to `/signup`. |
+| M11.5.7 | Run `bin/rails demo:generate_import_csv`. Confirm `demo_import_10k.csv` is written and the dry-run validation prints "✓ all 10000 rows valid". |
+| M11.5.8 | Sign in as an hr_admin, go to Import, upload `demo_import_10k.csv`, preview, confirm. Confirm success banner shows 10,000 employees created. |
+| M11.5.9 | On the employee list, open the filter panel (sliders icon). Filter by Department = Engineering. Confirm only Engineering employees are shown. |
+| M11.5.10 | Combine two filters (e.g. Department = Engineering + Status = active). Confirm the list narrows correctly and the filter icon shows the active count. |
+| M11.5.11 | Click "Clear all". Confirm all filters reset and the full list is restored. |
+| M11.5.12 | Click a column header to sort ascending, click again for descending. Confirm the arrow indicator toggles and the list re-orders correctly. |
+| M11.5.13 | Sign in as viewer. Confirm the salary band create form (New band button) is not visible. Sign in as admin — confirm it is. |
+| M11.5.14 | As admin, create a new salary band via the form. Confirm it appears in the list without a page reload. |
