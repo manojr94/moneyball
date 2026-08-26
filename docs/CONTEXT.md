@@ -821,6 +821,25 @@ React 18 deprecates `defaultProps` on function components. The three analytics s
 
 **Employee list filter bar is narrow.** Only Status is filterable; the lonely dropdown looks out of place as a "filter bar." Deferred to M11.5 as a filter-icon approach with a panel supporting Status, Department, Country, and Title/Level. Hire date is excluded because point-in-time hire date range queries require cursor redesign.
 
+### Analytics: `as_of` and `rate_date` are intentionally independent (M10 QA)
+
+During M10 manual QA the question arose whether applying both `as_of` (which salary snapshot to use) and `rate_date` (which exchange rate to convert at) is confusing — should they always move together? Decision: keep them independent. The two dates answer different questions:
+
+- `as_of` — "what were people being paid on this date?" Determines which salary row is current for each employee.
+- `rate_date` — "at what exchange rate do I convert to USD for comparison?" Lets finance ask "what was the payroll cost in USD terms at end-of-quarter rates?" while still looking at salaries that were in effect three months ago.
+
+Forcing them to be the same would make common finance workflows impossible. The UI may eventually default `rate_date` to match `as_of`, but the API must keep them independent.
+
+### Sign-out bugs found during M10 manual QA
+
+Three compounding issues caused "Sign out" to appear non-functional. Root causes recorded here so the pattern is not repeated:
+
+1. **Wrong HTTP status on `DELETE /session`.** `head :ok` (200) was returned instead of `head :no_content` (204). The API client short-circuits on 204; a 200 with an empty body causes `res.json()` to throw `SyntaxError`, which `.catch(() => {})` swallowed silently. Fixed: `head :no_content`.
+
+2. **`navigate('/login')` race condition.** `navigate('/login')` fired before `setUser(null)` propagated through React state. `LoginPage` saw a stale non-null `user` and redirected back to `/employees`. Fixed by removing the explicit `navigate()` call — `Layout`'s `if (!user) return <Navigate to="/login" replace />` handles the redirect in the same render pass.
+
+3. **Nav z-index.** The nav element had no stacking context; content in the main area sat above the right edge of the nav, making the Sign out button unclickable in some scroll positions. Fixed: `relative z-10` on the `<nav>` element.
+
 ---
 
 ## Working agreements
