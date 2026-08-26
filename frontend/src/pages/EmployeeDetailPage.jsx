@@ -8,9 +8,7 @@ import { ErrorMessage } from '../components/ErrorMessage'
 import { EmptyState } from '../components/EmptyState'
 import { RaiseForm } from '../components/RaiseForm'
 import { formatMoney } from '../utils/money'
-
-const thCls = 'px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide'
-const tdCls = 'px-4 py-3 text-sm text-slate-700'
+import { thCls, tdCls } from '../styles/shared'
 
 export function EmployeeDetailPage() {
   const { id } = useParams()

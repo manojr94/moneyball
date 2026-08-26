@@ -6,8 +6,9 @@ import { useApi } from '../hooks/useApi'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { EmptyState } from '../components/EmptyState'
-import { Tooltip, TooltipProvider } from '../components/Tooltip'
+import { Tooltip } from '../components/Tooltip'
 import { formatMoney } from '../utils/money'
+import { thCls, tdCls, inputCls } from '../styles/shared'
 
 const GROUP_BY_OPTIONS = [
   { value: 'region', label: 'Region' },
@@ -24,9 +25,6 @@ function today() {
 
 // The analytics endpoint converts all amounts to USD using the caller-supplied rate_date.
 const REPORTING_CURRENCY = 'USD'
-
-const thCls = 'px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide'
-const tdCls = 'px-4 py-3 text-sm text-slate-700 tabular-nums'
 
 function TableWrapper({ children }) {
   return (
@@ -57,12 +55,12 @@ function PayTable({ groups = [] }) {
         {groups.map((g) => (
           <tr key={g.key} className="hover:bg-slate-50">
             <td className={`${tdCls} font-medium text-slate-900`}>{g.label ?? g.key}</td>
-            <td className={tdCls}>{g.headcount}</td>
-            <td className={tdCls}>{formatMoney(g.min_usd_minor_units, REPORTING_CURRENCY)}</td>
-            <td className={tdCls}>{formatMoney(g.median_usd_minor_units, REPORTING_CURRENCY)}</td>
-            <td className={tdCls}>{formatMoney(g.avg_usd_minor_units, REPORTING_CURRENCY)}</td>
-            <td className={tdCls}>{formatMoney(g.max_usd_minor_units, REPORTING_CURRENCY)}</td>
-            <td className={tdCls}>{formatMoney(g.total_spend_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.headcount}</td>
+            <td className={`${tdCls} tabular-nums`}>{formatMoney(g.min_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td className={`${tdCls} tabular-nums`}>{formatMoney(g.median_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td className={`${tdCls} tabular-nums`}>{formatMoney(g.avg_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td className={`${tdCls} tabular-nums`}>{formatMoney(g.max_usd_minor_units, REPORTING_CURRENCY)}</td>
+            <td className={`${tdCls} tabular-nums`}>{formatMoney(g.total_spend_usd_minor_units, REPORTING_CURRENCY)}</td>
           </tr>
         ))}
       </tbody>
@@ -91,12 +89,12 @@ function CompaTable({ groups = [] }) {
         {groups.map((g) => (
           <tr key={g.key ?? g.label} className="hover:bg-slate-50">
             <td className={`${tdCls} font-medium text-slate-900`}>{g.label ?? g.key}</td>
-            <td className={tdCls}>{g.headcount}</td>
-            <td className={tdCls}>{g.avg_compa_ratio != null ? Number(g.avg_compa_ratio).toFixed(2) : '—'}</td>
-            <td className={tdCls}>{g.below ?? '—'}</td>
-            <td className={tdCls}>{g.within ?? '—'}</td>
-            <td className={tdCls}>{g.above ?? '—'}</td>
-            <td className={tdCls}>{g.unresolved ?? '—'}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.headcount}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.avg_compa_ratio != null ? Number(g.avg_compa_ratio).toFixed(2) : '—'}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.below ?? '—'}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.within ?? '—'}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.above ?? '—'}</td>
+            <td className={`${tdCls} tabular-nums`}>{g.unresolved ?? '—'}</td>
           </tr>
         ))}
       </tbody>
@@ -133,9 +131,6 @@ function BandCoverageTable({ data = null }) {
 }
 
 BandCoverageTable.propTypes = { data: PropTypes.oneOfType([PropTypes.object, PropTypes.array]) }
-
-const inputCls =
-  'rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white'
 
 function LabelWithTooltip({ htmlFor, label, tooltip }) {
   return (
@@ -204,7 +199,6 @@ export function AnalyticsDashboard() {
   const unconvertible = payData?.meta?.unconvertible_currencies ?? []
 
   return (
-    <TooltipProvider>
     <div>
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-slate-900">Analytics</h2>
@@ -325,6 +319,5 @@ export function AnalyticsDashboard() {
         )}
       </div>
     </div>
-    </TooltipProvider>
   )
 }

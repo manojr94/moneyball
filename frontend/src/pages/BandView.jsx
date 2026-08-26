@@ -5,13 +5,11 @@ import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { EmptyState } from '../components/EmptyState'
 import { formatMoney } from '../utils/money'
+import { thCls, tdCls, inputCls } from '../styles/shared'
 
 function today() {
   return new Date().toISOString().slice(0, 10)
 }
-
-const thCls = 'px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wide'
-const tdCls = 'px-4 py-3 text-sm text-slate-700'
 
 export function BandView() {
   const [effectiveOn, setEffectiveOn] = useState(today)
@@ -38,7 +36,7 @@ export function BandView() {
             type="date"
             value={effectiveOn}
             onChange={(e) => setEffectiveOn(e.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+            className={inputCls}
           />
         </div>
       </div>

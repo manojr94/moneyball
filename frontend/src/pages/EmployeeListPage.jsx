@@ -5,6 +5,7 @@ import { listEmployees } from '../api/employees'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorMessage } from '../components/ErrorMessage'
 import { EmptyState } from '../components/EmptyState'
+import { inputCls } from '../styles/shared'
 
 const SORTABLE_COLUMNS = {
   employee_number: 'Number',
@@ -75,9 +76,6 @@ export function EmployeeListPage() {
     setPageIndex(newIndex)
     load(cursors[newIndex])
   }
-
-  const inputCls =
-    'rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white'
 
   return (
     <div>
