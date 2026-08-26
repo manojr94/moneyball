@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Navigate } from 'react-router-dom'
+import { useNavigate, Navigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function LoginPage() {
@@ -72,6 +72,12 @@ export function LoginPage() {
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        <p className="mt-4 text-center text-sm text-slate-500">
+          Have an invitation link?{' '}
+          <Link to="/signup" className="text-indigo-600 hover:underline">
+            Sign up →
+          </Link>
+        </p>
       </div>
     </div>
   )

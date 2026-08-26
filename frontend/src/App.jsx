@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
+import { SignupPage } from './pages/SignupPage'
 import { EmployeeListPage } from './pages/EmployeeListPage'
 import { EmployeeDetailPage } from './pages/EmployeeDetailPage'
 import { AnalyticsDashboard } from './pages/AnalyticsDashboard'
@@ -16,6 +17,7 @@ export default function App() {
         <TooltipProvider>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route element={<Layout />}>
               <Route index element={<Navigate to="/employees" replace />} />
               <Route path="/employees" element={<EmployeeListPage />} />
