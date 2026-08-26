@@ -886,3 +886,80 @@ runtime (`ruby -v` → 3.3.6). The original scaffold specified 3.1.4, which is E
 mismatched the installed runtime, causing `Bundler::RubyVersionMismatch` on every
 `rails` invocation. CI pins to `ruby-version-file: backend/.ruby-version` so the
 version is declared once and the CI matrix tracks it automatically.
+
+## M11 decisions (2026-08-26)
+
+### Index gap: `employees(department_id)` already existed
+
+The implementation plan listed `employees(department_id)` as a planned index for
+analytics grouping. Investigation revealed it was already created — `t.references
+:department` in the M1 migration generates a foreign-key index automatically in Rails.
+No migration was needed.
+
+### Seed approach: `insert_all!` in batches of 500
+
+10k employees and ~70k salary rows are seeded via `Employee.insert_all!` and
+`Salary.insert_all!` in batches of 500. This bypasses ActiveRecord callbacks
+intentionally — all referenced countries and departments are pre-seeded above the
+employee block, so the `before_validation` country-auto-create callback is not needed.
+No `after_create` hooks exist on `Employee` or `Salary`. Any future hook on those models
+must account for the seed path.
+
+`srand(42)` makes the distribution reproducible across re-runs. The seed is idempotent:
+the 10k-employee block is skipped when `Employee.count >= 10_000`.
+
+Observed seed time: ~13 seconds for 10k employees + ~70k salary rows.
+
+### Salary count: ~70k (not ~120k as targeted)
+
+The target was ~120k salary rows (~12 per employee). The actual count is ~70k (~7 per
+employee) because hire dates are distributed over 2015–2025 and events are spaced 6–18
+months apart — employees hired recently accumulate fewer events before today. This is
+sufficient for benchmarking all hot query paths.
+
+### Benchmark results (observed on seeded dataset, 2026-08-26)
+
+All five hot paths within the 500 ms target:
+
+| Path | Time |
+|---|---|
+| Current salary DISTINCT ON (all 10k) | ~50 ms |
+| Analytics aggregate by region | ~141 ms |
+| Analytics aggregate by department | ~143 ms |
+| BandResolver single-employee resolution | ~61 ms |
+| EmployeeQuery first page (keyset) | ~1 ms |
+
+No escalation to the materialized-view path (§5 of the implementation plan) was needed.
+
+### Streaming CSV import: `CSV.new` lazy iteration
+
+`ImportEmployees::Parser.open_and_validate_headers` reads only the header line with
+`io.gets` for validation, then rewinds the IO and creates a `CSV.new` object for lazy
+row-by-row iteration. For multipart uploads, `EmployeeImportsController` now passes
+`params[:file].tempfile` (a Rack IO) instead of `params[:file].read`, so the file is
+never fully materialized as a string.
+
+For `params[:csv]` string inputs (scripts and tests), the string is wrapped in
+`StringIO.new` and rewound the same way. Both paths use identical iteration code.
+
+### Batch inserts in ImportEmployees: `insert_all!` every 100 rows
+
+`RowValidator` (formerly `RowImporter`) calls `employee.valid?` to run Rails
+validations and the `before_validation` country-auto-create callback. Valid attribute
+hashes are accumulated in `ImportState#pending_employees`. `BatchFlusher.flush` calls
+`Employee.insert_all!(attrs, returning: %w[id employee_number])` every 100 rows and at
+end-of-file, then `Salary.insert_all!` for any associated salary rows.
+
+`insert_all!` bypasses `after_create` hooks — none exist on `Employee` or `Salary`.
+The concurrent-import uniqueness test was updated to stub `Employee.insert_all!`
+(the actual insertion point in the batch path) rather than `employee.save`, which is no
+longer called.
+
+### Import UI: standalone fetch to avoid Content-Type conflict
+
+The shared `api/client.js` `request()` helper always sets `Content-Type: application/json`,
+which prevents the browser from setting the `multipart/form-data` boundary required for
+file uploads. `api/imports.js` is a standalone module that uses raw `fetch` with only
+the `Authorization` header, letting the browser handle the content type. It returns
+`{ status, body }` for all 2xx/4xx responses so the `ImportPage` can render row-error
+details from a 422 without treating it as a thrown error.
