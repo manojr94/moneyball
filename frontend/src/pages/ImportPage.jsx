@@ -6,12 +6,13 @@ import { uploadEmployees } from '../api/imports'
 
 export function ImportPage() {
   const { user } = useAuth()
-  if (user?.role !== 'hr_admin') return <Navigate to="/employees" replace />
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
+
+  if (user?.role !== 'hr_admin') return <Navigate to="/employees" replace />
 
   function handleFileChange(e) {
     setFile(e.target.files[0] ?? null)

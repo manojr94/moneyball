@@ -158,7 +158,8 @@ class ImportEmployees
 
   # Accumulates counts, seen-so-far maps, error list, and batch buffers.
   class ImportState
-    attr_reader :errors, :seen_numbers, :seen_emails, :dept_cache, :pending_employees
+    attr_reader :errors, :seen_numbers, :seen_emails, :dept_cache, :country_cache,
+                :pending_employees
     attr_accessor :rows_total, :rows_valid, :employees_created, :salaries_created,
                   :header_error
 
@@ -167,6 +168,7 @@ class ImportEmployees
       @seen_numbers = {}
       @seen_emails = {}
       @dept_cache = {}
+      @country_cache = Set.new # country codes whose existence has already been confirmed/created
       @pending_employees = [] # [{emp_attrs:, salary_attrs:, row_num:}]
       @rows_total = @rows_valid = @employees_created = @salaries_created = 0
       @header_error = nil
@@ -208,7 +210,7 @@ class ImportEmployees
     def validate_and_buffer
       dept     = resolve_department(@attrs[:department_name])
       employee = build_employee(dept)
-      unless employee.valid?
+      unless employee.valid?(:import)
         return @state.record_error(@row_num, @attrs[:employee_number], employee.errors.full_messages)
       end
 
@@ -253,11 +255,25 @@ class ImportEmployees
     end
 
     def build_employee(dept)
-      Employee.new(
+      emp = Employee.new(
         @attrs.slice(:employee_number, :first_name, :last_name, :email, :country_code,
                      :job_title, :job_level, :hire_date, :status, :terminated_on)
               .merge(department: dept)
       )
+      # Country existence is guaranteed by register_country; suppress the
+      # per-row DB lookup that before_validation :ensure_country_exists would do.
+      register_country(@attrs[:country_code])
+      emp.skip_country_check = @state.country_cache.include?(@attrs[:country_code])
+      emp
+    end
+
+    # Ensures the country exists in the DB and marks it in the cache. No-op after
+    # first call for a given code; only one DB lookup per unique country per import.
+    def register_country(code)
+      return if code.blank? || @state.country_cache.include?(code)
+
+      Country.find_or_create_unconfigured(code) unless Country.exists?(code: code)
+      @state.country_cache.add(code)
     end
 
     def employee_db_attrs(employee)
@@ -339,21 +355,34 @@ class ImportEmployees
       pending = state.pending_employees
       return if pending.empty?
 
-      insert_employees(state, pending)
+      # Savepoint so a unique-violation rolls back only this batch, not the
+      # entire outer transaction. Without it, PG aborts the outer transaction on
+      # the first constraint error and all subsequent queries raise
+      # PG::InFailedSqlTransaction — breaking dry-run reports and early-error paths.
+      ActiveRecord::Base.transaction(requires_new: true) do
+        insert_employees(state, pending)
+      end
     rescue ActiveRecord::RecordNotUnique => e
       handle_unique_violation(state, pending, e)
     end
 
     def insert_employees(state, pending)
       # rubocop:disable Rails/Pluck -- pending is a plain Ruby array, not an AR relation
-      emp_attrs = pending.map { |p| p[:emp_attrs] }
+      emp_attrs    = pending.map { |p| p[:emp_attrs] }
+      has_salaries = pending.any? { |p| p[:salary_attrs] }
       # rubocop:enable Rails/Pluck
-      result = Employee.insert_all!(emp_attrs, returning: %w[id employee_number])
-      id_map = result.to_h { |r| [r['employee_number'], r['id']] }
 
-      insert_salaries(state, pending, id_map)
+      insert_with_salaries(state, pending, emp_attrs) if has_salaries
+      Employee.insert_all!(emp_attrs) unless has_salaries # skip RETURNING when unused
+
       state.employees_created += emp_attrs.size
       pending.clear
+    end
+
+    def insert_with_salaries(state, pending, emp_attrs)
+      result = Employee.insert_all!(emp_attrs, returning: %w[id employee_number])
+      id_map = result.to_h { |r| [r['employee_number'], r['id']] }
+      insert_salaries(state, pending, id_map)
     end
 
     def insert_salaries(state, pending, id_map)
@@ -379,6 +408,7 @@ class ImportEmployees
       # in the batch are marked errored. Re-upload after removing the conflicting
       # row(s) to find out which ones were actually clean.
       pending.each do |p|
+        state.rows_valid -= 1 # undo the increment from RowValidator#buffer_row
         state.record_error(p[:row_num], p[:emp_attrs][:employee_number],
                            ["batch rejected — a row in this batch conflicts on #{field}; " \
                             "re-upload after removing the conflict to identify which rows are clean"])

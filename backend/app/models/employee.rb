@@ -5,15 +5,18 @@ class Employee < ApplicationRecord
 
   STATUSES = %w[active inactive terminated].freeze
 
-  validates :employee_number, presence: true, uniqueness: true
+  validates :employee_number, presence: true, uniqueness: { on: %i[create update] }
   validates :first_name, :last_name, :job_title, :job_level, presence: true
-  validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
+  validates :email, presence: true, uniqueness: { on: %i[create update] },
+                    format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :hire_date, presence: true
   validates :country_code, presence: true
   validates :status, inclusion: { in: STATUSES }
   validate :terminated_on_requires_terminated_status
 
   scope :active, -> { where(status: 'active') }
+
+  attr_writer :skip_country_check
 
   before_validation :ensure_country_exists
   before_validation :clear_terminated_on_if_not_terminated
@@ -44,6 +47,7 @@ class Employee < ApplicationRecord
 
   def ensure_country_exists
     return if country_code.blank?
+    return if @skip_country_check # caller has already ensured country existence
     return if Country.exists?(code: country_code)
 
     Country.find_or_create_unconfigured(country_code)

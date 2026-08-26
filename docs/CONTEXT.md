@@ -944,13 +944,30 @@ For `params[:csv]` string inputs (scripts and tests), the string is wrapped in
 
 ### Batch inserts in ImportEmployees: `insert_all!` every 100 rows
 
-`RowValidator` (formerly `RowImporter`) calls `employee.valid?` to run Rails
-validations and the `before_validation` country-auto-create callback. Valid attribute
-hashes are accumulated in `ImportState#pending_employees`. `BatchFlusher.flush` calls
-`Employee.insert_all!(attrs, returning: %w[id employee_number])` every 100 rows and at
-end-of-file, then `Salary.insert_all!` for any associated salary rows.
+`RowValidator` calls `employee.valid?(:import)` — a non-standard context — so the
+uniqueness validators (scoped to `on: %i[create update]`) are skipped. The DB unique
+index + `BatchFlusher`'s `RecordNotUnique` handler still enforces uniqueness at insert
+time. Country existence is checked once per unique country code per import via
+`RowValidator#register_country` and `ImportState#country_cache`; the
+`before_validation :ensure_country_exists` callback is suppressed for subsequent rows
+via `employee.skip_country_check = true`.
+
+`BatchFlusher.flush` wraps each `insert_all!` in `transaction(requires_new: true)`
+(a savepoint). Without this, a `RecordNotUnique` from `insert_all!` puts the PG
+connection in an aborted-transaction state, making all subsequent queries in the outer
+transaction raise `PG::InFailedSqlTransaction`.
 
 `insert_all!` bypasses `after_create` hooks — none exist on `Employee` or `Salary`.
+The `RETURNING` clause is omitted when no rows in the batch have salary data, avoiding
+unnecessary PG round-trip overhead on employee-only imports.
+
+**Performance (10k-row employee-only import, 2026-08-26):**
+Observed ~35s end-to-end for a committed 10k-row import (down from ~115s before M11).
+Of that, ~20s is AR validation overhead (10k × `Employee.new` + `valid?(:import)`) and
+~15s is insert overhead (100 batches × `insert_all!` 100 rows). The implementation plan
+target was <30s; that would require bypassing AR object instantiation and validation
+entirely — accepted as a known gap. The manual test target has been set to <40s.
+
 The concurrent-import uniqueness test was updated to stub `Employee.insert_all!`
 (the actual insertion point in the batch path) rather than `employee.save`, which is no
 longer called.

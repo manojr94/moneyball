@@ -190,7 +190,8 @@ RSpec.describe ImportEmployees do
       create(:employee, employee_number: 'EXISTS', department: department, country_code: 'US')
       body = csv([row('employee_number' => 'EXISTS', 'email' => 'new@x.com')])
       result = described_class.call(body, dry_run: true)
-      expect(result.errors.first.messages.join).to include('has already been taken')
+      expect(result.rows_invalid).to eq(1)
+      expect(result.errors.first.messages.join).to include('batch rejected')
     end
 
     it 'fails an entire second import of the same file (duplicate detection across runs)' do
