@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   resource :registrations, only: [:create]
   get '/me', to: 'me#show'
 
+  resources :departments, only: [:index]
   resources :employees, only: %i[index show create update] do
     resources :salaries, only: %i[index create]
   end
