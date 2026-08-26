@@ -1,14 +1,16 @@
 # db/seeds.rb
 # Idempotent. Reference data uses find_or_create_by!; the 10k-employee block
 # is skipped when the target count is already met.
+# rubocop:disable Rails/SkipsModelValidations -- insert_all! is intentional here;
+# all referenced rows are pre-seeded and no after_create hooks exist on Employee/Salary.
 
 # ── Pay zones ─────────────────────────────────────────────────────────────────
 
 ZONE_MAP = {
-  'na'    => 'North America',
+  'na' => 'North America',
   'latam' => 'Latin America',
-  'emea'  => 'EMEA',
-  'apac'  => 'APAC'
+  'emea' => 'EMEA',
+  'apac' => 'APAC'
 }.freeze
 
 zone_records = ZONE_MAP.each_with_object({}) do |(region, name), acc|
@@ -33,8 +35,8 @@ end
 
 DEPARTMENT_NAMES = %w[Engineering Design Finance HR Sales Operations].freeze
 
-dept_records = DEPARTMENT_NAMES.each_with_object({}) do |name, acc|
-  acc[name] = Department.find_or_create_by!(name: name) do |d|
+dept_records = DEPARTMENT_NAMES.index_with do |name|
+  Department.find_or_create_by!(name: name) do |d|
     d.slug = name.downcase
   end
 end
@@ -143,8 +145,8 @@ band_seed_date = Date.new(2024, 1, 1)
   zone = zone_records[b[:region]]
   SalaryBand.find_or_create_by!(
     pay_zone_id: zone.id,
-    job_title:   b[:title],
-    job_level:   b[:level],
+    job_title: b[:title],
+    job_level: b[:level],
     effective_from: band_seed_date
   ) do |sb|
     sb.currency         = b[:currency]
@@ -167,27 +169,27 @@ SEED_BATCH       = 500
 
 current_count = Employee.count
 if current_count >= TARGET_EMPLOYEES
-  puts "Seed: #{current_count} employees already present — skipping bulk insert."
+  Rails.logger.debug { "Seed: #{current_count} employees already present — skipping bulk insert." }
 else
-  puts "Seed: generating #{TARGET_EMPLOYEES - current_count} employees..."
+  Rails.logger.debug { "Seed: generating #{TARGET_EMPLOYEES - current_count} employees..." }
 
   srand(42)
 
   # Weighted country pool — only currencies with seeded exchange rates
   SEED_COUNTRIES = (
-    [{ code: 'US', currency: 'USD' }] * 30 +
-    [{ code: 'GB', currency: 'GBP' }] * 15 +
-    [{ code: 'DE', currency: 'EUR' }] * 12 +
-    [{ code: 'FR', currency: 'EUR' }] * 10 +
-    [{ code: 'JP', currency: 'JPY' }] * 10 +
-    [{ code: 'CA', currency: 'CAD' }] * 10 +
-    [{ code: 'NL', currency: 'EUR' }] *  8 +
-    [{ code: 'ES', currency: 'EUR' }] *  5
+    ([{ code: 'US', currency: 'USD' }] * 30) +
+    ([{ code: 'GB', currency: 'GBP' }] * 15) +
+    ([{ code: 'DE', currency: 'EUR' }] * 12) +
+    ([{ code: 'FR', currency: 'EUR' }] * 10) +
+    ([{ code: 'JP', currency: 'JPY' }] * 10) +
+    ([{ code: 'CA', currency: 'CAD' }] * 10) +
+    ([{ code: 'NL', currency: 'EUR' }] *  8) +
+    ([{ code: 'ES', currency: 'EUR' }] *  5)
   ).freeze
 
   TITLES   = %w[Engineer Designer Analyst Manager].freeze
   LEVELS   = %w[L1 L2 L3 L4 L5 L6].freeze
-  STATUSES = (['active'] * 80 + ['inactive'] * 15 + ['terminated'] * 5).freeze
+  STATUSES = ((['active'] * 80) + (['inactive'] * 15) + (['terminated'] * 5)).freeze
 
   FIRST_NAMES = %w[
     James Mary Robert Patricia John Jennifer Michael Barbara William Linda
@@ -209,19 +211,19 @@ else
   SALARY_RANGES = {
     'USD' => { 'L1' => [50_000, 65_000],  'L2' => [65_000, 85_000],
                'L3' => [85_000, 115_000], 'L4' => [110_000, 145_000],
-               'L5' => [140_000, 185_000],'L6' => [175_000, 230_000] },
+               'L5' => [140_000, 185_000], 'L6' => [175_000, 230_000] },
     'GBP' => { 'L1' => [38_000, 50_000],  'L2' => [50_000, 68_000],
                'L3' => [68_000, 90_000],  'L4' => [88_000, 115_000],
-               'L5' => [110_000, 148_000],'L6' => [140_000, 185_000] },
+               'L5' => [110_000, 148_000], 'L6' => [140_000, 185_000] },
     'EUR' => { 'L1' => [42_000, 55_000],  'L2' => [55_000, 72_000],
                'L3' => [72_000, 96_000],  'L4' => [92_000, 120_000],
-               'L5' => [118_000, 155_000],'L6' => [148_000, 195_000] },
-    'JPY' => { 'L1' => [4_000_000, 5_500_000],  'L2' => [5_500_000, 7_000_000],
+               'L5' => [118_000, 155_000], 'L6' => [148_000, 195_000] },
+    'JPY' => { 'L1' => [4_000_000, 5_500_000], 'L2' => [5_500_000, 7_000_000],
                'L3' => [7_000_000, 9_500_000],   'L4' => [9_000_000, 12_000_000],
                'L5' => [12_000_000, 16_000_000], 'L6' => [15_000_000, 20_000_000] },
     'CAD' => { 'L1' => [58_000, 75_000],  'L2' => [75_000, 98_000],
                'L3' => [98_000, 130_000], 'L4' => [125_000, 165_000],
-               'L5' => [160_000, 210_000],'L6' => [200_000, 260_000] }
+               'L5' => [160_000, 210_000], 'L6' => [200_000, 260_000] }
   }.freeze
 
   SUBUNIT = { 'USD' => 100, 'GBP' => 100, 'EUR' => 100, 'CAD' => 100, 'JPY' => 1 }.freeze
@@ -247,17 +249,17 @@ else
 
     emp_attrs_all << {
       employee_number: num_str,
-      first_name:      first,
-      last_name:       last,
-      email:           "#{first.downcase}.#{last.downcase}.#{next_num + i}@acme-corp.example",
-      country_code:    country[:code],
-      department_id:   dept_ids.sample,
-      job_title:       title,
-      job_level:       level,
-      hire_date:       hire_date,
-      status:          STATUSES.sample,
-      created_at:      now,
-      updated_at:      now
+      first_name: first,
+      last_name: last,
+      email: "#{first.downcase}.#{last.downcase}.#{next_num + i}@acme-corp.example",
+      country_code: country[:code],
+      department_id: dept_ids.sample,
+      job_title: title,
+      job_level: level,
+      hire_date: hire_date,
+      status: STATUSES.sample,
+      created_at: now,
+      updated_at: now
     }
 
     emp_meta[num_str] = { currency: currency, hire_date: hire_date, level: level }
@@ -268,12 +270,12 @@ else
   emp_attrs_all.each_slice(SEED_BATCH) do |batch|
     result = Employee.insert_all!(batch, returning: %w[id employee_number])
     result.each { |row| id_by_number[row['employee_number']] = row['id'] }
-    print '.'
+    Rails.logger.debug '.'
   end
-  puts " #{Employee.count} employees total."
+  Rails.logger.debug { " #{Employee.count} employees total." }
 
   # Build and insert salary rows
-  print 'Seed: generating salaries'
+  Rails.logger.debug 'Seed: generating salaries'
   salary_rows = []
 
   id_by_number.each do |num, emp_id|
@@ -291,26 +293,28 @@ else
 
     num_events.times do |i|
       salary_rows << {
-        employee_id:        emp_id,
+        employee_id: emp_id,
         amount_minor_units: base_minor,
-        currency:           currency,
-        effective_date:     event_date,
-        reason:             i.zero? ? 'new_hire' : RAISE_REASONS.sample,
-        created_at:         now,
-        updated_at:         now
+        currency: currency,
+        effective_date: event_date,
+        reason: i.zero? ? 'new_hire' : RAISE_REASONS.sample,
+        created_at: now,
+        updated_at: now
       }
 
       next_date = event_date >> rand(6..18)
-      break if next_date >= Date.today
+      break if next_date >= Time.zone.today
 
       event_date = next_date
-      base_minor = (base_minor * (1 + rand(2..8) / 100.0)).round
+      base_minor = (base_minor * (1 + (rand(2..8) / 100.0))).round
     end
   end
 
   salary_rows.each_slice(SEED_BATCH) do |batch|
     Salary.insert_all!(batch)
-    print '.'
+    Rails.logger.debug '.'
   end
-  puts " #{Salary.count} salaries total."
+  Rails.logger.debug { " #{Salary.count} salaries total." }
 end
+
+# rubocop:enable Rails/SkipsModelValidations
