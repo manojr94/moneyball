@@ -1,17 +1,15 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export function Nav() {
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
 
   async function handleLogout() {
     await logout()
-    navigate('/login')
   }
 
   return (
-    <nav className="bg-slate-900 text-white h-14 flex items-center gap-8 px-6 shrink-0">
+    <nav className="relative z-10 bg-slate-900 text-white h-14 flex items-center gap-8 px-6 shrink-0">
       <div className="font-bold text-base text-indigo-300 whitespace-nowrap">Moneyball</div>
       <ul className="flex gap-1 flex-1 list-none m-0 p-0">
         <li>
@@ -54,8 +52,9 @@ export function Nav() {
       <div className="flex items-center gap-4 text-sm text-slate-300">
         <span>{user?.name}</span>
         <button
+          type="button"
           onClick={handleLogout}
-          className="text-slate-300 hover:text-white underline underline-offset-2 transition-colors"
+          className="cursor-pointer text-slate-300 hover:text-white underline underline-offset-2 transition-colors"
         >
           Sign out
         </button>

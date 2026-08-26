@@ -46,9 +46,9 @@ RSpec.describe 'Sessions', type: :request do
     let(:user) { create(:user) }
     let(:headers) { { 'Authorization' => "Bearer #{AuthToken.encode(user)}" } }
 
-    it 'returns 200 and invalidates the token' do
+    it 'returns 204 and invalidates the token' do
       delete '/session', headers: headers
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:no_content)
 
       get '/me', headers: headers
       expect(response).to have_http_status(:unauthorized)
