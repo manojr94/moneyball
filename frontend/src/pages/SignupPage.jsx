@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { signup } from '../api/registrations'
+import { useAuth } from '../contexts/AuthContext'
 
 export function SignupPage() {
+  const { loginWithToken } = useAuth()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
   const navigate = useNavigate()
@@ -36,7 +38,7 @@ export function SignupPage() {
     try {
       const { status, body } = await signup({ name, email, password, token })
       if (status === 201) {
-        localStorage.setItem('token', body.token)
+        loginWithToken(body.token, body.user)
         navigate('/employees', { replace: true })
       } else {
         setError(body.error ?? body.errors?.join(', ') ?? 'Signup failed.')

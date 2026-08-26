@@ -37,7 +37,7 @@ class EmployeeQuery
 
   def call
     rel = Employee.includes(:department, :country)
-    rel = rel.joins(:department) if @sort_key == 'department'
+    rel = rel.left_joins(:department) if @sort_key == 'department'
     rel = apply_filters(rel)
     rel = apply_cursor(rel)
     dir = @sort_dir.upcase

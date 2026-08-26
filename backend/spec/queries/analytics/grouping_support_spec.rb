@@ -1,17 +1,13 @@
 require 'rails_helper'
 
 RSpec.describe Analytics::GroupingSupport do
-  describe 'shared constants' do
-    it 'defines identical GROUPS in both analytics services' do
-      expect(PayAnalytics::GROUPS).to eq(CompaRatioAnalytics::GROUPS)
+  describe 'module constants' do
+    it 'GROUPS maps the four expected keys to SQL column expressions' do
+      expect(Analytics::GroupingSupport::GROUPS.keys).to match_array(%w[region country department level])
     end
 
-    it 'defines identical LABEL_SOURCE in both analytics services' do
-      expect(PayAnalytics::LABEL_SOURCE).to eq(CompaRatioAnalytics::LABEL_SOURCE)
-    end
-
-    it 'defines identical FILTERS in both analytics services' do
-      expect(PayAnalytics::FILTERS).to eq(CompaRatioAnalytics::FILTERS)
+    it 'FILTERS maps the four expected param keys to SQL column expressions' do
+      expect(Analytics::GroupingSupport::FILTERS.keys).to match_array(%i[region country_code department_id job_level])
     end
   end
 

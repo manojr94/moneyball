@@ -3,20 +3,29 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { SignupPage } from '../pages/SignupPage'
+import { AuthContext } from '../contexts/AuthContext'
 import * as registrationsApi from '../api/registrations'
+
+const mockLoginWithToken = vi.fn()
 
 function renderSignupPage(search = '') {
   return render(
-    <MemoryRouter initialEntries={[`/signup${search}`]}>
-      <Routes>
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/employees" element={<div>Employees page</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <AuthContext.Provider value={{ user: null, loginWithToken: mockLoginWithToken }}>
+      <MemoryRouter initialEntries={[`/signup${search}`]}>
+        <Routes>
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/employees" element={<div>Employees page</div>} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>,
   )
 }
 
 describe('SignupPage', () => {
+  beforeEach(() => {
+    mockLoginWithToken.mockReset()
+  })
+
   describe('no token in URL', () => {
     it('shows the no-invitation message and no form', () => {
       renderSignupPage()
@@ -38,10 +47,11 @@ describe('SignupPage', () => {
       expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument()
     })
 
-    it('redirects to /employees on successful signup', async () => {
+    it('calls loginWithToken and redirects to /employees on successful signup', async () => {
+      const responseUser = { id: 1, name: 'Jane', email: 'jane@x.com', role: 'hr_admin' }
       registrationsApi.signup.mockResolvedValue({
         status: 201,
-        body: { token: 'jwt-token', user: { id: 1, name: 'Jane', email: 'jane@x.com', role: 'hr_admin' } },
+        body: { token: 'jwt-token', user: responseUser },
       })
       renderSignupPage('?token=abc123')
       await userEvent.type(screen.getByLabelText('Name'), 'Jane Doe')
@@ -49,6 +59,7 @@ describe('SignupPage', () => {
       await userEvent.type(screen.getByLabelText('Password'), 'password123')
       await userEvent.click(screen.getByRole('button', { name: /create account/i }))
       await waitFor(() => expect(screen.getByText('Employees page')).toBeInTheDocument())
+      expect(mockLoginWithToken).toHaveBeenCalledWith('jwt-token', responseUser)
     })
 
     it('shows error message on 422', async () => {

@@ -22,6 +22,13 @@ RSpec.describe 'POST /registrations', type: :request do
       expect(body['user']['email']).to eq('jane@example.com')
       expect(invitation.reload.used?).to be true
     end
+
+    it 'ignores a role param and always creates an hr_admin user' do
+      post_signup(token: invitation.token, role: 'viewer')
+
+      expect(response).to have_http_status(:created)
+      expect(User.last.role).to eq('hr_admin')
+    end
   end
 
   describe 'valid unused token + duplicate email' do
