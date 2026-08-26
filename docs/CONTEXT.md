@@ -999,3 +999,23 @@ file uploads. `api/imports.js` is a standalone module that uses raw `fetch` with
 the `Authorization` header, letting the browser handle the content type. It returns
 `{ status, body }` for all 2xx/4xx responses so the `ImportPage` can render row-error
 details from a 422 without treating it as a thrown error.
+
+### M11.5 — Invitation signup: outcome hash + Rollback instead of return-in-transaction
+
+The spec's pseudocode for `RegistrationsController` used `return render_invalid_token` inside a `transaction` block. Rails 7.1 raises `Rails/TransactionExitStatement` for any `return` (or `break`/`throw`) inside a transaction, because they silently rollback without the caller knowing the exit reason. The fix: accumulate an `outcome` hash, raise `ActiveRecord::Rollback` to abort the transaction when needed, then branch on `outcome[:status]` *after* the transaction block. No rubocop:disable needed.
+
+### M11.5 — Rake constants must be defined at file scope
+
+`Lint/ConstantDefinitionInBlock` fires for any constant defined inside a `namespace` or `task` block (Rake DSL uses blocks, so Ruby treats them as dynamic constant assignments). All demo-data constants (names, department weights, currency ranges, country pool) were moved to file scope and prefixed with `DEMO_` to avoid name collisions with application constants. `Metrics/BlockLength` for rake tasks is already excluded in `.rubocop.yml`, so no additional disables were needed.
+
+### M11.5 — Analytics::GroupingSupport as a module (not base class)
+
+Both `PayAnalytics` and `CompaRatioAnalytics` needed to share five constants and ~10 helper methods. A mixin module (`include Analytics::GroupingSupport`) was preferred over inheritance because neither class has an is-a relationship with the other, and both already have independent `initialize` signatures. Constants defined in the module are resolved correctly by instance methods mixed in via `include` because Ruby constant lookup walks the module hierarchy. The `connection` helper became `delegate :connection, to: :'ActiveRecord::Base'` after RuboCop autocorrected the explicit method definition.
+
+### M11.5 — useApi hook: refresh vs refetch
+
+The `useApi` hook in `frontend/src/hooks/useApi.js` exposes a `refresh` key (the `run` callback), not `refetch`. Any component that needs to re-trigger a fetch after a mutation must destructure `refresh`.
+
+### M11.5 — SELECT FOR UPDATE for concurrent invitation consumption
+
+To prevent two simultaneous signup requests consuming the same token, the controller queries the invitation inside a transaction with `.lock` (`SELECT … FOR UPDATE`). Only the first request obtains the row lock; the second blocks until the first commits, then re-queries and finds `used_at` non-null, returning 422. This is simpler than an optimistic-locking approach and correct for the low-contention case (invitation links are shared one at a time).

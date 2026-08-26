@@ -34,3 +34,6 @@
 
 # RSpec
 /spec/examples.txt
+
+# Generated demo CSV (reproducible via bin/rails demo:generate_import_csv)
+../demo_import_10k.csv

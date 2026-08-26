@@ -46,7 +46,7 @@ class EmployeesController < ApplicationController
   end
 
   def query_params
-    params.permit(:status, :department_id, :country_code, :sort, :cursor, :per_page)
+    params.permit(:status, :department_id, :country_code, :job_title, :job_level, :sort, :sort_dir, :cursor, :per_page)
   end
 
   def employee_params

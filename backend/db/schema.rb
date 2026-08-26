@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_08_26_000001) do
+ActiveRecord::Schema[7.1].define(version: 2026_08_26_135747) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "btree_gist"
   enable_extension "plpgsql"
@@ -68,6 +68,14 @@ ActiveRecord::Schema[7.1].define(version: 2026_08_26_000001) do
     t.date "effective_date", null: false
     t.datetime "created_at", null: false
     t.index ["currency", "effective_date"], name: "index_exchange_rates_on_currency_and_effective_date", unique: true, order: { effective_date: :desc }
+  end
+
+  create_table "invitations", force: :cascade do |t|
+    t.string "token", null: false
+    t.datetime "used_at", precision: nil
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token"], name: "index_invitations_on_token", unique: true
   end
 
   create_table "pay_zones", force: :cascade do |t|

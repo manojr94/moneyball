@@ -5,8 +5,10 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { BandView } from '../pages/BandView'
 import { AuthContext } from '../contexts/AuthContext'
 import * as bandsApi from '../api/bands'
+import * as payZonesApi from '../api/pay_zones'
 
 vi.mock('../api/bands')
+vi.mock('../api/pay_zones')
 
 const adminUser = { id: 1, name: 'Admin', role: 'hr_admin' }
 
@@ -33,9 +35,12 @@ const sampleBand = {
   effective_to: null,
 }
 
+const viewerUser = { id: 2, name: 'Viewer', role: 'employee' }
+
 describe('BandView', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    payZonesApi.listPayZones.mockResolvedValue([])
   })
 
   it('shows loading spinner while fetching', () => {
@@ -72,6 +77,20 @@ describe('BandView', () => {
     expect(screen.getByText('$70,000.00')).toBeInTheDocument()
     expect(screen.getByText('$100,000.00')).toBeInTheDocument()
     expect(screen.getByText('$130,000.00')).toBeInTheDocument()
+  })
+
+  it('admin sees New band button', async () => {
+    bandsApi.listBands.mockResolvedValue([])
+    renderPage(adminUser)
+    await screen.findByText(/no salary bands/i)
+    expect(screen.getByRole('button', { name: /new band/i })).toBeInTheDocument()
+  })
+
+  it('viewer does not see New band button', async () => {
+    bandsApi.listBands.mockResolvedValue([])
+    renderPage(viewerUser)
+    await screen.findByText(/no salary bands/i)
+    expect(screen.queryByRole('button', { name: /new band/i })).not.toBeInTheDocument()
   })
 
   it('refetches when effective date changes', async () => {

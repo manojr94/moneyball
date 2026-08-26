@@ -94,6 +94,12 @@ RSpec.describe 'Employees API', type: :request do
     end
 
     describe 'filter combinations' do
+      before do
+        create(:employee, first_name: 'Dave', last_name: 'Dean',
+                          department: dept_eng, country_code: 'US', status: 'active',
+                          job_title: 'Software Engineer', job_level: 'L4')
+      end
+
       it 'combines status and department filters (AND semantics)' do
         get '/employees', params: { status: 'active', department_id: dept_hr.id },
                           headers: viewer_headers
@@ -107,6 +113,45 @@ RSpec.describe 'Employees API', type: :request do
         expect(data.size).to eq(1)
         expect(data.first['first_name']).to eq('Bob')
       end
+
+      it 'filters by job_title alone' do
+        get '/employees', params: { job_title: 'Software Engineer' }, headers: viewer_headers
+        titles = response.parsed_body['data'].pluck('job_title').uniq
+        expect(titles).to eq(['Software Engineer'])
+      end
+
+      it 'filters by job_level alone' do
+        get '/employees', params: { job_level: 'L4' }, headers: viewer_headers
+        levels = response.parsed_body['data'].pluck('job_level').uniq
+        expect(levels).to eq(['L4'])
+      end
+
+      it 'combines status + department + country (three-way AND)' do
+        get '/employees', params: { status: 'active', department_id: dept_eng.id,
+                                    country_code: 'US' }, headers: viewer_headers
+        data = response.parsed_body['data']
+        expect(data.pluck('status').uniq).to eq(['active'])
+        expect(data.map { |e| e['department']['id'] }.uniq).to eq([dept_eng.id])
+        expect(data.pluck('country_code').uniq).to eq(['US'])
+      end
+
+      it 'combines all five filters and returns matching employees' do
+        get '/employees', params: { status: 'active', department_id: dept_eng.id,
+                                    country_code: 'US', job_title: 'Software Engineer',
+                                    job_level: 'L4' }, headers: viewer_headers
+        data = response.parsed_body['data']
+        expect(data).not_to be_empty
+        data.each do |e|
+          expect(e['status']).to eq('active')
+          expect(e['job_title']).to eq('Software Engineer')
+          expect(e['job_level']).to eq('L4')
+        end
+      end
+
+      it 'returns the full list when no filters are applied' do
+        get '/employees', headers: viewer_headers
+        expect(response.parsed_body['data'].size).to be > 1
+      end
     end
 
     describe 'sorting' do
@@ -114,9 +159,12 @@ RSpec.describe 'Employees API', type: :request do
         # delete_all bypasses the before_destroy callback (which blocks destroy on Employee).
         # DatabaseCleaner uses the same bypass for test teardown.
         Employee.delete_all
-        create(:employee, last_name: 'Zebra', department: dept_eng, country_code: 'US')
-        create(:employee, last_name: 'Apple', department: dept_eng, country_code: 'US')
-        create(:employee, last_name: 'Mango', department: dept_eng, country_code: 'US')
+        create(:employee, last_name: 'Zebra', department: dept_eng, country_code: 'US',
+                          job_title: 'Engineer', job_level: 'L5', status: 'active')
+        create(:employee, last_name: 'Apple', department: dept_hr, country_code: 'DE',
+                          job_title: 'Analyst', job_level: 'L3', status: 'inactive')
+        create(:employee, last_name: 'Mango', department: dept_eng, country_code: 'US',
+                          job_title: 'Manager', job_level: 'L4', status: 'active')
       end
 
       it 'defaults to ascending employee_number order' do
@@ -125,10 +173,46 @@ RSpec.describe 'Employees API', type: :request do
         expect(numbers).to eq(numbers.sort)
       end
 
-      it 'sorts by last_name ascending when sort=last_name' do
-        get '/employees', params: { sort: 'last_name' }, headers: viewer_headers
+      it 'sorts by last_name ascending' do
+        get '/employees', params: { sort: 'last_name', sort_dir: 'asc' }, headers: viewer_headers
         names = response.parsed_body['data'].pluck('last_name')
         expect(names).to eq(names.sort)
+      end
+
+      it 'sorts by last_name descending' do
+        get '/employees', params: { sort: 'last_name', sort_dir: 'desc' }, headers: viewer_headers
+        names = response.parsed_body['data'].pluck('last_name')
+        expect(names).to eq(names.sort.reverse)
+      end
+
+      it 'sorts by job_title ascending' do
+        get '/employees', params: { sort: 'job_title', sort_dir: 'asc' }, headers: viewer_headers
+        titles = response.parsed_body['data'].pluck('job_title')
+        expect(titles).to eq(titles.sort)
+      end
+
+      it 'sorts by job_level ascending' do
+        get '/employees', params: { sort: 'job_level', sort_dir: 'asc' }, headers: viewer_headers
+        levels = response.parsed_body['data'].pluck('job_level')
+        expect(levels).to eq(levels.sort)
+      end
+
+      it 'sorts by country_code ascending' do
+        get '/employees', params: { sort: 'country_code', sort_dir: 'asc' }, headers: viewer_headers
+        codes = response.parsed_body['data'].pluck('country_code')
+        expect(codes).to eq(codes.sort)
+      end
+
+      it 'sorts by status ascending' do
+        get '/employees', params: { sort: 'status', sort_dir: 'asc' }, headers: viewer_headers
+        statuses = response.parsed_body['data'].pluck('status')
+        expect(statuses).to eq(statuses.sort)
+      end
+
+      it 'sorts by department name ascending' do
+        get '/employees', params: { sort: 'department', sort_dir: 'asc' }, headers: viewer_headers
+        dept_names = response.parsed_body['data'].map { |e| e['department']['name'] }
+        expect(dept_names).to eq(dept_names.sort)
       end
 
       it 'falls back to employee_number for an unknown sort key' do
@@ -136,6 +220,13 @@ RSpec.describe 'Employees API', type: :request do
         expect(response).to have_http_status(:ok)
         numbers = response.parsed_body['data'].pluck('employee_number')
         expect(numbers).to eq(numbers.sort)
+      end
+
+      it 'ignores invalid sort_dir and defaults to asc' do
+        get '/employees', params: { sort: 'last_name', sort_dir: 'sideways' }, headers: viewer_headers
+        expect(response).to have_http_status(:ok)
+        names = response.parsed_body['data'].pluck('last_name')
+        expect(names).to eq(names.sort)
       end
     end
 

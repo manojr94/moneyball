@@ -2,8 +2,11 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   resource :session, only: %i[create destroy]
+  resource :registrations, only: [:create]
   get '/me', to: 'me#show'
 
+  resources :departments, only: [:index]
+  resources :pay_zones, only: [:index]
   resources :employees, only: %i[index show create update] do
     resources :salaries, only: %i[index create]
   end
