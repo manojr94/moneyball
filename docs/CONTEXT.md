@@ -955,6 +955,25 @@ The concurrent-import uniqueness test was updated to stub `Employee.insert_all!`
 (the actual insertion point in the batch path) rather than `employee.save`, which is no
 longer called.
 
+**Known limitation — unique-violation blast radius.** `insert_all!` is atomic: a single
+`RecordNotUnique` exception rolls back the whole batch. `BatchFlusher.handle_unique_violation`
+therefore marks every row in the affected batch as errored, even though only one row
+actually conflicted. Users will see false-positive errors for up to `BATCH_SIZE - 1`
+clean rows. The error message instructs them to re-upload after removing the known
+conflict to isolate which other rows (if any) are genuinely clean. Accepting this
+tradeoff avoids the alternative — per-row `save` inside the batch — which would defeat
+the purpose of batching. A future improvement could retry the batch one row at a time
+when a violation occurs, at the cost of up to 100 extra round-trips.
+
+### Seed salary generation bypasses Money type
+
+`db/seeds.rb` computes salary minor units as `rand(major_range) * SUBUNIT[currency]` —
+plain integer arithmetic, not through the `Money` type. This is intentional: seeds
+bypass callbacks and types for bulk speed. `SUBUNIT` is an explicit map from currency
+symbol to minor-unit multiplier; adding a new seed currency without adding it to `SUBUNIT`
+now raises immediately (via `Hash#fetch` with a block) rather than silently using 100 as
+the fallback multiplier.
+
 ### Import UI: standalone fetch to avoid Content-Type conflict
 
 The shared `api/client.js` `request()` helper always sets `Content-Type: application/json`,

@@ -1,8 +1,12 @@
 import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
+import { Navigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { uploadEmployees } from '../api/imports'
 
 export function ImportPage() {
+  const { user } = useAuth()
+  if (user?.role !== 'hr_admin') return <Navigate to="/employees" replace />
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [submitting, setSubmitting] = useState(false)

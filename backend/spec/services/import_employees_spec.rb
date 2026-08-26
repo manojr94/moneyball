@@ -62,9 +62,17 @@ RSpec.describe ImportEmployees do
       end.to change(Employee, :count).by(1)
     end
 
-    it 'strips a UTF-8 BOM from the first header' do
+    it 'strips a UTF-8 BOM from the first header (String input)' do
       body = "﻿#{csv([row])}"
       expect { described_class.call(body, dry_run: false) }.to change(Employee, :count).by(1)
+    end
+
+    it 'strips a UTF-8 BOM from the first header (IO input)' do
+      # Simulates a multipart tempfile upload where the browser sends a BOM-prefixed CSV.
+      # The String path wraps in StringIO.new(strip_bom(source)); the IO path must also
+      # skip the BOM bytes before handing the stream to the CSV parser.
+      io = StringIO.new("﻿#{csv([row])}")
+      expect { described_class.call(io, dry_run: false) }.to change(Employee, :count).by(1)
     end
 
     it 'handles CRLF line endings' do
@@ -221,7 +229,7 @@ RSpec.describe ImportEmployees do
         .and_raise(ActiveRecord::RecordNotUnique, 'PG::UniqueViolation: employee_number')
       result = described_class.call(body, dry_run: false)
       expect(result.committed).to be(false)
-      expect(result.errors.first.messages.first).to include('conflicts with an existing record')
+      expect(result.errors.first.messages.first).to include('batch rejected')
       expect(result.errors.first.messages.first).to include('employee_number')
     end
   end

@@ -26,10 +26,12 @@ namespace :perf do
     # ── 1. Current salary for all employees (DISTINCT ON hot path) ───────────
     # Simulates the read behind the employee list's salary display.
     t = Benchmark.realtime do
-      ActiveRecord::Base.connection.execute(<<~SQL.squish)
+      conn        = ActiveRecord::Base.connection
+      quoted_date = conn.quote(as_of_date)
+      conn.execute(<<~SQL.squish)
         SELECT DISTINCT ON (employee_id) employee_id, amount_minor_units, currency
         FROM salaries
-        WHERE effective_date <= '#{as_of_date}'
+        WHERE effective_date <= #{quoted_date}
         ORDER BY employee_id, effective_date DESC, id DESC
       SQL
     end

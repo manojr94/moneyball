@@ -106,11 +106,12 @@ class ImportEmployees
   class Parser
     def self.open_and_validate_headers(source)
       io      = to_io(source)
+      start   = io.pos # position after any BOM has been skipped
       headers = read_header_line(io)
       err     = validate_headers(headers)
       return [nil, err] if err
 
-      io.rewind
+      io.seek(start) # return to content start, not raw start, so BOM stays skipped
       [CSV.new(io, headers: true, skip_blanks: true), nil]
     rescue CSV::MalformedCSVError => e
       [nil, "malformed CSV: #{e.message}"]
@@ -125,7 +126,15 @@ class ImportEmployees
     end
 
     def self.to_io(source)
-      source.is_a?(String) ? StringIO.new(strip_bom(source)) : source
+      if source.is_a?(String)
+        StringIO.new(strip_bom(source))
+      else
+        # Advance past a UTF-8 BOM if present so the CSV parser never sees it.
+        # We read 3 bytes; if they're not the BOM we seek back to 0.
+        bom = source.read(3).to_s
+        source.seek(bom.b.start_with?("\xEF\xBB\xBF".b) ? 3 : 0)
+        source
+      end
     end
 
     def self.read_header_line(io)
@@ -366,9 +375,13 @@ class ImportEmployees
 
     def handle_unique_violation(state, pending, err)
       field = err.message[/employee_number|email/] || 'unique field'
+      # insert_all! is atomic: one conflict rolls back the whole batch. All rows
+      # in the batch are marked errored. Re-upload after removing the conflicting
+      # row(s) to find out which ones were actually clean.
       pending.each do |p|
         state.record_error(p[:row_num], p[:emp_attrs][:employee_number],
-                           ["conflicts with an existing record (#{field})"])
+                           ["batch rejected — a row in this batch conflicts on #{field}; " \
+                            "re-upload after removing the conflict to identify which rows are clean"])
       end
       pending.clear
     end

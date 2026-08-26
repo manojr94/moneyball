@@ -283,7 +283,7 @@ else
     currency  = meta[:currency]
     level     = meta[:level]
     hire_date = meta[:hire_date]
-    scale     = SUBUNIT[currency] || 100
+    scale     = SUBUNIT.fetch(currency) { raise "add #{currency} to SUBUNIT in seeds.rb" }
     ranges    = SALARY_RANGES[currency] || SALARY_RANGES['USD']
     range     = ranges[level] || ranges['L3']
 

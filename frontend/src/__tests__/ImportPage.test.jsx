@@ -197,9 +197,9 @@ describe('ImportPage', () => {
   })
 })
 
-describe('Nav Import link visibility', () => {
-  it('is not tested here — covered in Nav integration; ImportPage renders for any authenticated user', () => {
+describe('ImportPage authorization', () => {
+  it('redirects viewers away from the import page', () => {
     renderPage(viewerUser)
-    expect(screen.getByText(/import employees/i)).toBeInTheDocument()
+    expect(screen.queryByText(/import employees/i)).not.toBeInTheDocument()
   })
 })
