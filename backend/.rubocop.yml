@@ -45,3 +45,10 @@ RSpec/ExampleLength:
 # genuinely bloated contexts without penalizing realistic integration test setup.
 RSpec/MultipleMemoizedHelpers:
   Max: 10
+
+# Rake tasks are inherently procedural scripts — the block IS the task body.
+# Extracting helpers into methods outside the namespace block just to satisfy
+# a line-count limit makes rake tasks harder to read, not easier.
+Metrics/BlockLength:
+  Exclude:
+    - "lib/tasks/**/*.rake"

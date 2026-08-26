@@ -62,9 +62,17 @@ RSpec.describe ImportEmployees do
       end.to change(Employee, :count).by(1)
     end
 
-    it 'strips a UTF-8 BOM from the first header' do
+    it 'strips a UTF-8 BOM from the first header (String input)' do
       body = "﻿#{csv([row])}"
       expect { described_class.call(body, dry_run: false) }.to change(Employee, :count).by(1)
+    end
+
+    it 'strips a UTF-8 BOM from the first header (IO input)' do
+      # Simulates a multipart tempfile upload where the browser sends a BOM-prefixed CSV.
+      # The String path wraps in StringIO.new(strip_bom(source)); the IO path must also
+      # skip the BOM bytes before handing the stream to the CSV parser.
+      io = StringIO.new("﻿#{csv([row])}")
+      expect { described_class.call(io, dry_run: false) }.to change(Employee, :count).by(1)
     end
 
     it 'handles CRLF line endings' do
@@ -182,7 +190,8 @@ RSpec.describe ImportEmployees do
       create(:employee, employee_number: 'EXISTS', department: department, country_code: 'US')
       body = csv([row('employee_number' => 'EXISTS', 'email' => 'new@x.com')])
       result = described_class.call(body, dry_run: true)
-      expect(result.errors.first.messages.join).to include('has already been taken')
+      expect(result.rows_invalid).to eq(1)
+      expect(result.errors.first.messages.join).to include('batch rejected')
     end
 
     it 'fails an entire second import of the same file (duplicate detection across runs)' do
@@ -213,14 +222,15 @@ RSpec.describe ImportEmployees do
     end
 
     it 'records a row error (not a 500) when a concurrent insert wins the unique index' do
-      # Simulates the race: our uniqueness SELECT passes, then the INSERT collides
-      # with a row inserted by another transaction between the check and the write.
+      # Simulates the race: our uniqueness SELECT passes (valid? returns true),
+      # then the batch insert collides with a row another transaction inserted
+      # between the valid? check and the insert_all!.
       body = csv([row('employee_number' => 'RACE', 'email' => 'race@x.com')])
-      allow_any_instance_of(Employee).to receive(:save) # rubocop:disable RSpec/AnyInstance
+      allow(Employee).to receive(:insert_all!)
         .and_raise(ActiveRecord::RecordNotUnique, 'PG::UniqueViolation: employee_number')
       result = described_class.call(body, dry_run: false)
       expect(result.committed).to be(false)
-      expect(result.errors.first.messages.first).to include('conflicts with an existing record')
+      expect(result.errors.first.messages.first).to include('batch rejected')
       expect(result.errors.first.messages.first).to include('employee_number')
     end
   end

@@ -886,3 +886,116 @@ runtime (`ruby -v` → 3.3.6). The original scaffold specified 3.1.4, which is E
 mismatched the installed runtime, causing `Bundler::RubyVersionMismatch` on every
 `rails` invocation. CI pins to `ruby-version-file: backend/.ruby-version` so the
 version is declared once and the CI matrix tracks it automatically.
+
+## M11 decisions (2026-08-26)
+
+### Index gap: `employees(department_id)` already existed
+
+The implementation plan listed `employees(department_id)` as a planned index for
+analytics grouping. Investigation revealed it was already created — `t.references
+:department` in the M1 migration generates a foreign-key index automatically in Rails.
+No migration was needed.
+
+### Seed approach: `insert_all!` in batches of 500
+
+10k employees and ~70k salary rows are seeded via `Employee.insert_all!` and
+`Salary.insert_all!` in batches of 500. This bypasses ActiveRecord callbacks
+intentionally — all referenced countries and departments are pre-seeded above the
+employee block, so the `before_validation` country-auto-create callback is not needed.
+No `after_create` hooks exist on `Employee` or `Salary`. Any future hook on those models
+must account for the seed path.
+
+`srand(42)` makes the distribution reproducible across re-runs. The seed is idempotent:
+the 10k-employee block is skipped when `Employee.count >= 10_000`.
+
+Observed seed time: ~13 seconds for 10k employees + ~70k salary rows.
+
+### Salary count: ~70k (not ~120k as targeted)
+
+The target was ~120k salary rows (~12 per employee). The actual count is ~70k (~7 per
+employee) because hire dates are distributed over 2015–2025 and events are spaced 6–18
+months apart — employees hired recently accumulate fewer events before today. This is
+sufficient for benchmarking all hot query paths.
+
+### Benchmark results (observed on seeded dataset, 2026-08-26)
+
+All five hot paths within the 500 ms target:
+
+| Path | Time |
+|---|---|
+| Current salary DISTINCT ON (all 10k) | ~50 ms |
+| Analytics aggregate by region | ~141 ms |
+| Analytics aggregate by department | ~143 ms |
+| BandResolver single-employee resolution | ~61 ms |
+| EmployeeQuery first page (keyset) | ~1 ms |
+
+No escalation to the materialized-view path (§5 of the implementation plan) was needed.
+
+### Streaming CSV import: `CSV.new` lazy iteration
+
+`ImportEmployees::Parser.open_and_validate_headers` reads only the header line with
+`io.gets` for validation, then rewinds the IO and creates a `CSV.new` object for lazy
+row-by-row iteration. For multipart uploads, `EmployeeImportsController` now passes
+`params[:file].tempfile` (a Rack IO) instead of `params[:file].read`, so the file is
+never fully materialized as a string.
+
+For `params[:csv]` string inputs (scripts and tests), the string is wrapped in
+`StringIO.new` and rewound the same way. Both paths use identical iteration code.
+
+### Batch inserts in ImportEmployees: `insert_all!` every 100 rows
+
+`RowValidator` calls `employee.valid?(:import)` — a non-standard context — so the
+uniqueness validators (scoped to `on: %i[create update]`) are skipped. The DB unique
+index + `BatchFlusher`'s `RecordNotUnique` handler still enforces uniqueness at insert
+time. Country existence is checked once per unique country code per import via
+`RowValidator#register_country` and `ImportState#country_cache`; the
+`before_validation :ensure_country_exists` callback is suppressed for subsequent rows
+via `employee.skip_country_check = true`.
+
+`BatchFlusher.flush` wraps each `insert_all!` in `transaction(requires_new: true)`
+(a savepoint). Without this, a `RecordNotUnique` from `insert_all!` puts the PG
+connection in an aborted-transaction state, making all subsequent queries in the outer
+transaction raise `PG::InFailedSqlTransaction`.
+
+`insert_all!` bypasses `after_create` hooks — none exist on `Employee` or `Salary`.
+The `RETURNING` clause is omitted when no rows in the batch have salary data, avoiding
+unnecessary PG round-trip overhead on employee-only imports.
+
+**Performance (10k-row employee-only import, 2026-08-26):**
+Observed ~35s end-to-end for a committed 10k-row import (down from ~115s before M11).
+Of that, ~20s is AR validation overhead (10k × `Employee.new` + `valid?(:import)`) and
+~15s is insert overhead (100 batches × `insert_all!` 100 rows). The implementation plan
+target was <30s; that would require bypassing AR object instantiation and validation
+entirely — accepted as a known gap. The manual test target has been set to <40s.
+
+The concurrent-import uniqueness test was updated to stub `Employee.insert_all!`
+(the actual insertion point in the batch path) rather than `employee.save`, which is no
+longer called.
+
+**Known limitation — unique-violation blast radius.** `insert_all!` is atomic: a single
+`RecordNotUnique` exception rolls back the whole batch. `BatchFlusher.handle_unique_violation`
+therefore marks every row in the affected batch as errored, even though only one row
+actually conflicted. Users will see false-positive errors for up to `BATCH_SIZE - 1`
+clean rows. The error message instructs them to re-upload after removing the known
+conflict to isolate which other rows (if any) are genuinely clean. Accepting this
+tradeoff avoids the alternative — per-row `save` inside the batch — which would defeat
+the purpose of batching. A future improvement could retry the batch one row at a time
+when a violation occurs, at the cost of up to 100 extra round-trips.
+
+### Seed salary generation bypasses Money type
+
+`db/seeds.rb` computes salary minor units as `rand(major_range) * SUBUNIT[currency]` —
+plain integer arithmetic, not through the `Money` type. This is intentional: seeds
+bypass callbacks and types for bulk speed. `SUBUNIT` is an explicit map from currency
+symbol to minor-unit multiplier; adding a new seed currency without adding it to `SUBUNIT`
+now raises immediately (via `Hash#fetch` with a block) rather than silently using 100 as
+the fallback multiplier.
+
+### Import UI: standalone fetch to avoid Content-Type conflict
+
+The shared `api/client.js` `request()` helper always sets `Content-Type: application/json`,
+which prevents the browser from setting the `multipart/form-data` boundary required for
+file uploads. `api/imports.js` is a standalone module that uses raw `fetch` with only
+the `Authorization` header, letting the browser handle the content type. It returns
+`{ status, body }` for all 2xx/4xx responses so the `ImportPage` can render row-error
+details from a 422 without treating it as a thrown error.

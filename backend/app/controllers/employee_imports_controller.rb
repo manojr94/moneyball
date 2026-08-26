@@ -14,12 +14,15 @@ class EmployeeImportsController < ApplicationController
   # Accepts either a multipart file under :file, or a raw CSV string under :csv
   # (JSON body). Multipart is the default from a browser or curl -F; the string
   # form is a convenience for scripts and tests.
+  # Multipart uploads pass the Rack tempfile (an IO) so the service can stream
+  # rows without materializing the entire file as a string. The :csv string
+  # form (scripts/tests) is accepted as-is.
   def read_csv
-    if params[:file].respond_to?(:read)
-      params[:file].read
-    elsif params[:csv].is_a?(String) && params[:csv].present?
-      params[:csv]
-    end
+    file = params[:file]
+    return file.tempfile if file.respond_to?(:tempfile)
+    return file.read if file.respond_to?(:read)
+
+    params[:csv] if params[:csv].is_a?(String) && params[:csv].present?
   end
 
   # Dry-run defaults to true — a missing or unrecognised flag never commits.

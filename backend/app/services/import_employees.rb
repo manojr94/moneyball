@@ -7,13 +7,18 @@ require 'csv'
 # success. This is the "preview matches commit" guarantee — the same
 # validations, uniqueness checks, and callback side-effects run in both modes.
 #
-# The row loop runs to completion even after the first error so HR gets a full
-# error list on a single upload rather than one error per re-upload. Errors are
-# capped at MAX_ERRORS entries in the response; row processing continues past
-# the cap so the summary counts remain accurate.
+# Streaming: rows are processed one at a time. The source can be a String or
+# any IO-like object (e.g. a Rack tempfile). The header line is read first for
+# validation; the IO is rewound and CSV iterates the rest lazily.
+#
+# Batch inserts: valid attributes are buffered in ImportState and flushed with
+# insert_all! every BATCH_SIZE rows. insert_all! bypasses ActiveRecord callbacks
+# by design — validations ran in RowValidator and no after_create hooks exist on
+# Employee or Salary. Any future hook on those models must account for this path.
 class ImportEmployees
-  MAX_ROWS = 10_000
+  MAX_ROWS   = 10_000
   MAX_ERRORS = 100
+  BATCH_SIZE = 100
 
   REQUIRED_HEADERS = %w[
     employee_number first_name last_name email country_code
@@ -44,20 +49,32 @@ class ImportEmployees
   end
 
   def call
-    table, header_error = Parser.parse(@csv_source)
+    csv, header_error = Parser.open_and_validate_headers(@csv_source)
     return header_failure_result(header_error) if header_error
 
-    ActiveRecord::Base.transaction do
-      table.each_with_index { |row, idx| process_row(idx + 2, row) } # header is line 1
-      raise ActiveRecord::Rollback if @dry_run || @state.errors.any?
-    end
+    within_transaction { process_rows(csv) }
     build_result
   end
 
   private
 
-  def process_row(row_num, row)
-    RowImporter.new(row_num: row_num, row: row, state: @state, actor: @actor).call
+  def within_transaction
+    ActiveRecord::Base.transaction do
+      yield
+      raise ActiveRecord::Rollback if @state.header_error || @dry_run || @state.errors.any?
+    end
+  end
+
+  def process_rows(csv)
+    Parser.each_row(csv) do |row, row_num|
+      if @state.rows_total >= MAX_ROWS
+        @state.header_error = "file exceeds #{MAX_ROWS}-row limit; max is #{MAX_ROWS}"
+        raise ActiveRecord::Rollback
+      end
+      RowValidator.new(row_num: row_num, row: row, state: @state, actor: @actor).call
+      BatchFlusher.flush(@state) if @state.pending_employees.size >= BATCH_SIZE
+    end
+    BatchFlusher.flush(@state) unless @state.header_error
   end
 
   def header_failure_result(header_error)
@@ -70,11 +87,12 @@ class ImportEmployees
   end
 
   def build_result
+    return header_failure_result(@state.header_error) if @state.header_error
+
     committed = !@dry_run && @state.errors.empty?
     Result.new(
       committed: committed, dry_run: @dry_run,
-      rows_total: @state.rows_total,
-      rows_valid: @state.rows_valid,
+      rows_total: @state.rows_total, rows_valid: @state.rows_valid,
       rows_invalid: @state.rows_total - @state.rows_valid,
       employees_created: committed ? @state.employees_created : 0,
       salaries_created: committed ? @state.salaries_created : 0,
@@ -82,21 +100,52 @@ class ImportEmployees
     )
   end
 
-  # Header validation, BOM stripping, and CSV parsing. Returns [table, err] where
-  # err is a human-readable string when the file is unusable as a whole.
+  # Opens the CSV source, validates headers without consuming data rows,
+  # and returns a positioned CSV object ready for row-by-row iteration.
+  # Returns [csv, nil] on success or [nil, error_string] on failure.
   class Parser
-    def self.parse(source)
-      text = source.is_a?(String) ? source : source.read
-      text = strip_bom(text.to_s)
-      table = CSV.parse(text, headers: true, skip_blanks: true)
-      err = validate_headers(table.headers) || validate_size(table)
-      [err ? [] : table, err]
+    def self.open_and_validate_headers(source)
+      io      = to_io(source)
+      start   = io.pos # position after any BOM has been skipped
+      headers = read_header_line(io)
+      err     = validate_headers(headers)
+      return [nil, err] if err
+
+      io.seek(start) # return to content start, not raw start, so BOM stays skipped
+      [CSV.new(io, headers: true, skip_blanks: true), nil]
     rescue CSV::MalformedCSVError => e
-      [[], "malformed CSV: #{e.message}"]
+      [nil, "malformed CSV: #{e.message}"]
+    end
+
+    def self.each_row(csv)
+      row_num = 1 # header is line 1; first data row is line 2
+      csv.each do |row|
+        row_num += 1
+        yield row, row_num
+      end
+    end
+
+    def self.to_io(source)
+      if source.is_a?(String)
+        StringIO.new(strip_bom(source))
+      else
+        # Advance past a UTF-8 BOM if present so the CSV parser never sees it.
+        # We read 3 bytes; if they're not the BOM we seek back to 0.
+        bom = source.read(3).to_s
+        source.seek(bom.b.start_with?("\xEF\xBB\xBF".b) ? 3 : 0)
+        source
+      end
+    end
+
+    def self.read_header_line(io)
+      line = io.gets
+      return [] if line.nil?
+
+      CSV.parse_line(strip_bom(line))&.map { |h| h&.to_s&.strip } || []
     end
 
     def self.strip_bom(text)
-      text.sub(/\A\xEF\xBB\xBF/, '').sub(/\A\uFEFF/, '')
+      text.to_s.sub(/\A\xEF\xBB\xBF/, '').sub(/\A\uFEFF/, '')
     end
 
     def self.validate_headers(headers)
@@ -105,24 +154,24 @@ class ImportEmployees
       missing = REQUIRED_HEADERS - headers.compact.map { |h| h.to_s.strip }
       "missing required column(s): #{missing.join(', ')}" if missing.any?
     end
-
-    def self.validate_size(table)
-      "file has #{table.size} rows; max is #{MAX_ROWS}" if table.size > MAX_ROWS
-    end
   end
 
-  # Accumulates counts, seen-so-far maps, and error list across rows. One per
-  # import call; shared between the outer service and each RowImporter.
+  # Accumulates counts, seen-so-far maps, error list, and batch buffers.
   class ImportState
-    attr_reader :errors, :seen_numbers, :seen_emails, :dept_cache
-    attr_accessor :rows_total, :rows_valid, :employees_created, :salaries_created
+    attr_reader :errors, :seen_numbers, :seen_emails, :dept_cache, :country_cache,
+                :pending_employees
+    attr_accessor :rows_total, :rows_valid, :employees_created, :salaries_created,
+                  :header_error
 
     def initialize
       @errors = []
       @seen_numbers = {}
-      @seen_emails  = {}
-      @dept_cache   = {}
+      @seen_emails = {}
+      @dept_cache = {}
+      @country_cache = Set.new # country codes whose existence has already been confirmed/created
+      @pending_employees = [] # [{emp_attrs:, salary_attrs:, row_num:}]
       @rows_total = @rows_valid = @employees_created = @salaries_created = 0
+      @header_error = nil
     end
 
     def record_error(row_num, employee_number, messages)
@@ -132,9 +181,10 @@ class ImportEmployees
     end
   end
 
-  # Processes a single CSV row: extracts attributes, checks in-file duplicates,
-  # saves the employee, then optionally creates a salary via RecordSalaryChange.
-  class RowImporter
+  # Validates a single CSV row and buffers valid attributes into ImportState.
+  # Does not persist — persistence is delegated to BatchFlusher.
+  # rubocop:disable Metrics/ClassLength -- bulk of length is private helpers, not logic
+  class RowValidator
     SALARY_FIELDS = %w[salary_amount salary_currency salary_effective_date].freeze
 
     def initialize(row_num:, row:, state:, actor:)
@@ -149,24 +199,34 @@ class ImportEmployees
       @attrs = RowAttrs.extract(@row)
       return if duplicate_in_file?
 
-      save_row
+      validate_and_buffer
     rescue ActiveRecord::RecordNotUnique => e
-      # Concurrent import raced us to the unique index. Recorded as a row error
-      # so the outer transaction rolls back cleanly instead of 500-ing.
       field = e.message[/employee_number|email/] || 'unique field'
       error("conflicts with an existing record (#{field})")
     end
 
     private
 
-    def save_row
-      employee = build_employee
-      if employee.save && maybe_create_salary(employee)
-        @state.employees_created += 1
-        @state.rows_valid += 1
-      elsif employee.errors.any?
-        @state.record_error(@row_num, @attrs[:employee_number], employee.errors.full_messages)
+    def validate_and_buffer
+      dept     = resolve_department(@attrs[:department_name])
+      employee = build_employee(dept)
+      unless employee.valid?(:import)
+        return @state.record_error(@row_num, @attrs[:employee_number], employee.errors.full_messages)
       end
+
+      salary_attrs = build_salary_attrs
+      return if salary_attrs == :invalid
+
+      buffer_row(employee, salary_attrs)
+    end
+
+    def buffer_row(employee, salary_attrs)
+      @state.pending_employees << {
+        emp_attrs: employee_db_attrs(employee),
+        salary_attrs: salary_attrs,
+        row_num: @row_num
+      }
+      @state.rows_valid += 1
     end
 
     def duplicate_in_file?
@@ -194,12 +254,76 @@ class ImportEmployees
       @state.seen_emails[@attrs[:email]] = @row_num if @attrs[:email]
     end
 
-    def build_employee
-      Employee.new(
+    def build_employee(dept)
+      emp = Employee.new(
         @attrs.slice(:employee_number, :first_name, :last_name, :email, :country_code,
                      :job_title, :job_level, :hire_date, :status, :terminated_on)
-              .merge(department: resolve_department(@attrs[:department_name]))
+              .merge(department: dept)
       )
+      # Country existence is guaranteed by register_country; suppress the
+      # per-row DB lookup that before_validation :ensure_country_exists would do.
+      register_country(@attrs[:country_code])
+      emp.skip_country_check = @state.country_cache.include?(@attrs[:country_code])
+      emp
+    end
+
+    # Ensures the country exists in the DB and marks it in the cache. No-op after
+    # first call for a given code; only one DB lookup per unique country per import.
+    def register_country(code)
+      return if code.blank? || @state.country_cache.include?(code)
+
+      Country.find_or_create_unconfigured(code) unless Country.exists?(code: code)
+      @state.country_cache.add(code)
+    end
+
+    def employee_db_attrs(employee)
+      now = Time.current
+      employee.attributes
+              .slice(*%w[employee_number first_name last_name email country_code
+                         department_id job_title job_level hire_date status terminated_on])
+              .symbolize_keys
+              .merge(created_at: now, updated_at: now)
+    end
+
+    def build_salary_attrs
+      return nil if SALARY_FIELDS.none? { |f| @attrs[f.to_sym] }
+      return :invalid unless salary_fields_present?
+
+      amount_minor = parse_salary_amount
+      return :invalid if amount_minor == :invalid
+
+      salary_hash(amount_minor)
+    end
+
+    def parse_salary_amount
+      to_minor_units(@attrs[:salary_amount], @attrs[:salary_currency])
+    rescue ArgumentError, Money::Currency::UnknownCurrency => e
+      error("salary: #{e.message}")
+      :invalid
+    end
+
+    def salary_hash(amount_minor)
+      now = Time.current
+      {
+        amount_minor_units: amount_minor,
+        currency: @attrs[:salary_currency],
+        effective_date: @attrs[:salary_effective_date] || @attrs[:hire_date],
+        reason: 'new_hire',
+        created_by_id: @actor&.id,
+        created_at: now,
+        updated_at: now
+      }
+    end
+
+    def salary_fields_present?
+      missing = [
+        ('salary_amount' if @attrs[:salary_amount].blank?),
+        ('salary_currency' if @attrs[:salary_currency].blank?)
+      ].compact
+      return true if missing.empty?
+
+      error("salary: missing #{missing.join(', ')}")
+      false
     end
 
     def resolve_department(name)
@@ -207,44 +331,6 @@ class ImportEmployees
 
       key = name.downcase
       @state.dept_cache[key] ||= Department.where('LOWER(name) = ?', key).first
-    end
-
-    def maybe_create_salary(employee)
-      return true if SALARY_FIELDS.none? { |f| @attrs[f.to_sym] }
-      return false unless salary_fields_present?
-
-      RecordSalaryChange.call(**salary_args(employee))
-      @state.salaries_created += 1
-      true
-    rescue RecordSalaryChange::Error, ArgumentError, Money::Currency::UnknownCurrency => e
-      error("salary: #{e.message}")
-      false
-    end
-
-    def salary_fields_present?
-      missing = missing_salary_fields
-      return true if missing.empty?
-
-      error("salary: missing #{missing.join(', ')}")
-      false
-    end
-
-    def missing_salary_fields
-      [
-        ('salary_amount' if @attrs[:salary_amount].blank?),
-        ('salary_currency' if @attrs[:salary_currency].blank?)
-      ].compact
-    end
-
-    def salary_args(employee)
-      {
-        employee: employee,
-        amount_minor_units: to_minor_units(@attrs[:salary_amount], @attrs[:salary_currency]),
-        currency: @attrs[:salary_currency],
-        effective_date: @attrs[:salary_effective_date] || @attrs[:hire_date],
-        reason: 'new_hire',
-        created_by_id: @actor&.id
-      }
     end
 
     def to_minor_units(amount_str, currency)
@@ -257,12 +343,83 @@ class ImportEmployees
     end
   end
 
+  # rubocop:enable Metrics/ClassLength
+
+  # Flushes the pending-employees buffer via insert_all! and inserts salary rows.
+  # Called every BATCH_SIZE rows and once at end of file.
+  # rubocop:disable Rails/SkipsModelValidations -- intentional; validations ran in RowValidator
+  module BatchFlusher
+    module_function
+
+    def flush(state)
+      pending = state.pending_employees
+      return if pending.empty?
+
+      # Savepoint so a unique-violation rolls back only this batch, not the
+      # entire outer transaction. Without it, PG aborts the outer transaction on
+      # the first constraint error and all subsequent queries raise
+      # PG::InFailedSqlTransaction — breaking dry-run reports and early-error paths.
+      ActiveRecord::Base.transaction(requires_new: true) do
+        insert_employees(state, pending)
+      end
+    rescue ActiveRecord::RecordNotUnique => e
+      handle_unique_violation(state, pending, e)
+    end
+
+    def insert_employees(state, pending)
+      # rubocop:disable Rails/Pluck -- pending is a plain Ruby array, not an AR relation
+      emp_attrs    = pending.map { |p| p[:emp_attrs] }
+      has_salaries = pending.any? { |p| p[:salary_attrs] }
+      # rubocop:enable Rails/Pluck
+
+      insert_with_salaries(state, pending, emp_attrs) if has_salaries
+      Employee.insert_all!(emp_attrs) unless has_salaries # skip RETURNING when unused
+
+      state.employees_created += emp_attrs.size
+      pending.clear
+    end
+
+    def insert_with_salaries(state, pending, emp_attrs)
+      result = Employee.insert_all!(emp_attrs, returning: %w[id employee_number])
+      id_map = result.to_h { |r| [r['employee_number'], r['id']] }
+      insert_salaries(state, pending, id_map)
+    end
+
+    def insert_salaries(state, pending, id_map)
+      salary_rows = salary_rows_for(pending, id_map)
+      Salary.insert_all!(salary_rows) if salary_rows.any?
+      state.salaries_created += salary_rows.size
+    end
+
+    def salary_rows_for(pending, id_map)
+      pending.filter_map do |p|
+        next unless p[:salary_attrs]
+
+        emp_id = id_map[p[:emp_attrs][:employee_number]]
+        next unless emp_id
+
+        p[:salary_attrs].merge(employee_id: emp_id)
+      end
+    end
+
+    def handle_unique_violation(state, pending, err)
+      field = err.message[/employee_number|email/] || 'unique field'
+      # insert_all! is atomic: one conflict rolls back the whole batch. All rows
+      # in the batch are marked errored. Re-upload after removing the conflicting
+      # row(s) to find out which ones were actually clean.
+      pending.each do |p|
+        state.rows_valid -= 1 # undo the increment from RowValidator#buffer_row
+        state.record_error(p[:row_num], p[:emp_attrs][:employee_number],
+                           ["batch rejected — a row in this batch conflicts on #{field}; " \
+                            "re-upload after removing the conflict to identify which rows are clean"])
+      end
+      pending.clear
+    end
+  end
+  # rubocop:enable Rails/SkipsModelValidations
+
   # Extracts, trims, and normalizes a CSV::Row into a symbol-keyed hash.
-  # Also handles the "no salary fields present" path by leaving them nil.
   module RowAttrs
-    # Field => normaliser applied after trim. `:itself` leaves the trimmed value
-    # unchanged; `:upcase` for ISO codes; `:downcase` so email persistence, in-
-    # file dedupe, and the DB's case-sensitive unique index all agree.
     NORMALIZERS = {
       'employee_number' => :itself, 'first_name' => :itself, 'last_name' => :itself,
       'department_name' => :itself, 'job_title' => :itself, 'job_level' => :itself,

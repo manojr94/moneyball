@@ -316,6 +316,47 @@ Run against the full 10,000-employee seed, not a subset.
 | 8.4 | Compa-ratio across all 10k | Per-row band resolution |
 | 8.5 | Two browser tabs running heavy reports simultaneously | Connection pool exhaustion |
 
+## M11. Seed & performance
+
+Prerequisites: `rails db:seed` has been run; 10k employees and ~70k salary rows are present; servers up on `:3000` and `:5173`.
+
+### M11.1 Benchmark (backend, run once after seed)
+
+```bash
+cd backend && bundle exec rake perf:benchmark
+```
+
+Expected: all 5 paths report OK (under 500 ms). Record the timings. If any path fails, run `EXPLAIN (ANALYZE, BUFFERS)` on the slow query before concluding whether an index is missing or the data volume genuinely requires the materialized-view escalation path documented in §5 of the implementation plan.
+
+| # | Check | Pass criterion |
+|---|---|---|
+| M11.1 | `rake perf:benchmark` — current salary DISTINCT ON scan | < 500 ms |
+| M11.2 | `rake perf:benchmark` — analytics by region | < 500 ms |
+| M11.3 | `rake perf:benchmark` — analytics by department | < 500 ms |
+| M11.4 | `rake perf:benchmark` — single-employee band resolution | < 500 ms |
+| M11.5 | `rake perf:benchmark` — employee list first page | < 500 ms |
+
+### M11.2 Import performance (backend + UI)
+
+Generate a 10k-row CSV (`bin/rails runner "require 'csv'; puts CSV.generate { |csv| csv << %w[employee_number first_name last_name email country_code department_name job_title job_level hire_date]; 10000.times { |i| csv << [\"IMP#{i+1}\", 'Test', 'User', \"imp#{i+1}@test.com\", 'US', 'Engineering', 'Engineer', 'L3', '2024-01-01'] } }" > /tmp/import_test.csv`).
+
+| # | Check | Pass criterion |
+|---|---|---|
+| M11.6 | `time curl -s -X POST -F "file=@/tmp/import_test.csv" -F "dry_run=false" -H "Authorization: Bearer $TOKEN" http://localhost:3000/imports/employees` | Wall clock < 30 s; `committed: true` in response |
+| M11.7 | Memory during M11.6 (watch `top` or `ps`) | RSS stays under 500 MB |
+
+### M11.3 Import page (UI)
+
+| # | Check | Pass criterion |
+|---|---|---|
+| M11.8 | Sign in as `admin@example.com` — "Import" link appears in nav | Link visible |
+| M11.9 | Sign in as `viewer@example.com` — "Import" link absent from nav | Link not visible |
+| M11.10 | Upload a valid CSV as admin, click Preview — see rows_valid / rows_total summary | Summary matches file |
+| M11.11 | Confirm import — success state shows employees_created count | Correct count; no spinner stuck |
+| M11.12 | Upload a CSV with one bad row (blank first_name) — Preview shows row error, no Confirm button | Error listed; Confirm absent |
+| M11.13 | Upload a file with a missing required column (no `email`) — header_error appears | "missing required column" message |
+| M11.14 | Click "Import another file" after success — returns to blank file picker | File input is empty |
+
 ## M9. Frontend
 
 The SPA runs on `:5173` against the API on `:3000`. Start both servers before testing.
