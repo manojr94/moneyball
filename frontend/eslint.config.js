@@ -39,6 +39,7 @@ export default [
         { allowConstantExport: true },
       ],
       '@typescript-eslint/no-explicit-any': 'error',
+      'no-undef': 'off',
     },
   },
 ]

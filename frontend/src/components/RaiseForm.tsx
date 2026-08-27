@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, type FormEvent } from 'react'
 import { createSalary } from '../api/employees'
 import { listCurrencies } from '../api/currencies'
 import { majorToMinor } from '../utils/money'
@@ -32,7 +32,7 @@ export function RaiseForm({ employeeId, onSuccess, onCancel }: RaiseFormProps) {
 
   if (!isAdmin) return null
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
     setSubmitting(true)
