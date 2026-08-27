@@ -1,0 +1,21 @@
+employee_number,first_name,last_name,email,country_code,department_name,job_title,job_level,hire_date,salary_amount,salary_currency,salary_effective_date
+DEMO001,Sarah,Mitchell,sarah.mitchell@acme-corp.com,US,Engineering,Staff Engineer,L5,2019-03-15,185000,USD,2019-03-15
+DEMO002,James,Okonkwo,james.okonkwo@acme-corp.com,GB,Engineering,Senior Software Engineer,L4,2020-07-01,95000,GBP,2020-07-01
+DEMO003,Priya,Raghavan,priya.raghavan@acme-corp.com,IN,Engineering,Software Engineer,L3,2022-01-10,2800000,INR,2022-01-10
+DEMO004,Lukas,Bauer,lukas.bauer@acme-corp.com,DE,Engineering,Software Engineer,L3,2021-09-20,72000,EUR,2021-09-20
+DEMO005,Mei,Tanaka,mei.tanaka@acme-corp.com,JP,Design,Senior Product Designer,L4,2020-04-05,9500000,JPY,2020-04-05
+DEMO006,Carlos,Mendez,carlos.mendez@acme-corp.com,MX,Sales,Account Executive,L3,2021-11-01,720000,MXN,2021-11-01
+DEMO007,Aisha,Kamara,aisha.kamara@acme-corp.com,CA,HR,HR Business Partner,L4,2019-06-17,105000,CAD,2019-06-17
+DEMO008,Oliver,Hartmann,oliver.hartmann@acme-corp.com,CH,Finance,Senior Financial Analyst,L4,2020-10-12,110000,CHF,2020-10-12
+DEMO009,Fatima,Al-Rashid,fatima.alrashid@acme-corp.com,AE,Operations,Operations Manager,L5,2018-02-28,210000,AED,2018-02-28
+DEMO010,Yuki,Nakamura,yuki.nakamura@acme-corp.com,JP,Engineering,Principal Engineer,L6,2017-08-01,14500000,JPY,2017-08-01
+DEMO011,Tom,Brennan,tom.brennan@acme-corp.com,IE,Sales,Sales Director,L6,2016-05-23,145000,EUR,2016-05-23
+DEMO012,Nadia,Volkova,nadia.volkova@acme-corp.com,DE,Design,UX Researcher,L3,2022-03-07,64000,EUR,2022-03-07
+DEMO013,Wei,Zhang,wei.zhang@acme-corp.com,SG,Engineering,Senior Software Engineer,L4,2021-01-15,120000,SGD,2021-01-15
+DEMO014,Amara,Diallo,amara.diallo@acme-corp.com,FR,Finance,Financial Controller,L5,2018-09-10,88000,EUR,2018-09-10
+DEMO015,Soren,Lindqvist,soren.lindqvist@acme-corp.com,SE,Engineering,Software Engineer,L3,2023-01-09,620000,SEK,2023-01-09
+DEMO016,Isabella,Ferrara,isabella.ferrara@acme-corp.com,IT,Sales,Enterprise Account Executive,L4,2020-06-22,75000,EUR,2020-06-22
+DEMO017,Raj,Patel,raj.patel@acme-corp.com,US,Engineering,Engineering Manager,L6,2016-11-14,220000,USD,2016-11-14
+DEMO018,Hana,Suzuki,hana.suzuki@acme-corp.com,JP,HR,Talent Acquisition Specialist,L3,2022-07-04,5200000,JPY,2022-07-04
+DEMO019,Marcus,Thompson,marcus.thompson@acme-corp.com,GB,Operations,Supply Chain Analyst,L3,2023-03-20,52000,GBP,2023-03-20
+DEMO020,Chen,Li,chen.li@acme-corp.com,AU,Engineering,Senior Software Engineer,L4,2021-05-11,145000,AUD,2021-05-11
