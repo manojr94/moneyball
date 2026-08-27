@@ -1019,3 +1019,42 @@ The `useApi` hook in `frontend/src/hooks/useApi.js` exposes a `refresh` key (the
 ### M11.5 — SELECT FOR UPDATE for concurrent invitation consumption
 
 To prevent two simultaneous signup requests consuming the same token, the controller queries the invitation inside a transaction with `.lock` (`SELECT … FOR UPDATE`). Only the first request obtains the row lock; the second blocks until the first commits, then re-queries and finds `used_at` non-null, returning 422. This is simpler than an optimistic-locking approach and correct for the low-contention case (invitation links are shared one at a time).
+
+---
+
+## M12 decisions (2026-08-28)
+
+### Deployment: Render (API) + Cloudflare Pages (SPA)
+
+The API is deployed on Render's free tier (web service + PostgreSQL). The React SPA is deployed on Cloudflare Pages as a static site. No credit card is required for either service at this scale.
+
+Fly.io was considered but rejected: it requires a credit card and charges without explicit warning if resource limits are exceeded. Render's free web service sleeps after 15 minutes of inactivity (first wake-up request takes ~30s); this is documented in the README and manual test plan so demo reviewers are not confused.
+
+Cloudflare Pages was chosen over Render's static site offering because it provides a CDN-served global edge network at no cost.
+
+### Backend Dockerfile updated: Ruby 3.3.6 + PostgreSQL
+
+The scaffolded `backend/Dockerfile` had the wrong Ruby version (3.1.4 vs. 3.3.6), referenced `libsqlite3-0` (wrong — the app uses PostgreSQL), and installed `libvips` (not needed). Updated to Ruby 3.3.6, `libpq-dev`/`libpq5`/`postgresql-client`, and removed unused packages. `BUNDLE_WITHOUT` updated to `development:test` (was `development` only).
+
+### Frontend: multi-stage nginx Dockerfile
+
+The frontend is built with a Node 20 Alpine stage (`npm run build`), then the `dist/` output is served by `nginx:alpine`. An `nginx.conf` with `try_files $uri $uri/ /index.html` handles client-side routing — without this, direct navigation to `/employees/123` returns 404 from nginx.
+
+`VITE_API_URL` is passed as a Docker build argument so the same Dockerfile works for any environment.
+
+### TypeScript migration: at M12, not M9
+
+TypeScript was deferred from M9 because the Vite scaffold defaulted to JSX and retrofitting TypeScript mid-milestone would have been orthogonal to delivering UI features. The migration was done in one pass at M12.
+
+Key decisions during migration:
+- `src/types.ts` defines all shared domain types (`User`, `Employee`, `Salary`, `SalaryBand`, analytics response shapes, etc.) in one place.
+- PropTypes removed entirely — TypeScript interfaces replace them at the component boundary.
+- `useApi<T>` is generic; the type parameter propagates from the API function's return type.
+- `AuthContextValue` is exported so test files can construct typed mock context values without casting.
+- `vi.mocked()` is used throughout test files to properly type Vitest mock functions rather than casting.
+- `tsconfig.json` uses `"types": ["vite/client"]` to provide `import.meta.env` and CSS module types without a separate `vite-env.d.ts` reference file.
+- `index.html` entry point updated from `main.jsx` to `main.tsx`.
+
+### ADRs added
+
+Five Architecture Decision Records added to `docs/adr/` covering the most portfolio-relevant decisions: effective-dated salary, USD derived at read time, band resolution as a service object, JWT with token_version revocation, and keyset pagination. These surface the reasoning that otherwise lives only in CONTEXT.md and PR descriptions.
