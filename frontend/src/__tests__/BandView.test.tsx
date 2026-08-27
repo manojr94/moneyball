@@ -67,7 +67,7 @@ describe('BandView', () => {
   it('shows empty state when no bands', async () => {
     vi.mocked(bandsApi.listBands).mockResolvedValue([])
     renderPage()
-    expect(await screen.findByText(/no salary bands found/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no salary bands for this date/i)).toBeInTheDocument()
   })
 
   it('shows error when API fails', async () => {

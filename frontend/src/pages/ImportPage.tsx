@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Navigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { uploadEmployees } from '../api/imports'
 import type { ImportResult, ImportSummary } from '../types'
@@ -11,9 +11,11 @@ interface PreviewState {
 
 export function ImportPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<PreviewState | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [phase, setPhase] = useState<'preview' | 'import' | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -25,10 +27,21 @@ export function ImportPage() {
     setError(null)
   }
 
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    const dropped = e.dataTransfer.files[0]
+    if (dropped?.name.endsWith('.csv')) {
+      setFile(dropped)
+      setPreview(null)
+      setError(null)
+    }
+  }
+
   async function handlePreview(e: React.FormEvent) {
     e.preventDefault()
     if (!file) return
     setSubmitting(true)
+    setPhase('preview')
     setError(null)
     try {
       const { body } = await uploadEmployees(file, true)
@@ -43,10 +56,13 @@ export function ImportPage() {
   async function handleConfirm() {
     if (!file) return
     setSubmitting(true)
+    setPhase('import')
     setError(null)
     try {
       const { body } = await uploadEmployees(file, false)
-      setPreview({ result: body as ImportResult, confirmed: true })
+      const result = body as ImportResult
+      setPreview({ result, confirmed: true })
+      navigate('/employees', { state: { importSuccess: result.summary.employees_created } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -74,20 +90,43 @@ export function ImportPage() {
 
       {!confirmed && (
         <form onSubmit={handlePreview} className="mb-6">
-          <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="csv-file">
-            CSV file
-          </label>
           <input
             id="csv-file"
+            data-testid="csv-input"
             ref={inputRef}
             type="file"
             accept=".csv"
             onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500 file:mr-3 file:py-1.5 file:px-3
-                       file:rounded file:border-0 file:text-sm file:font-medium
-                       file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100
-                       cursor-pointer mb-4"
+            className="sr-only"
           />
+          <div
+            onDrop={submitting ? undefined : handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            onClick={() => !submitting && inputRef.current?.click()}
+            className={`mb-4 flex flex-col items-center justify-center gap-2 rounded-lg border-2
+                       border-dashed px-6 py-10 text-center transition-colors
+                       ${submitting
+                         ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-50'
+                         : 'border-slate-300 bg-slate-50 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50'}`}
+          >
+            {file ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-sm font-medium text-slate-800">{file.name}</p>
+                <p className="text-xs text-slate-400">{(file.size / 1024).toFixed(0)} KB · click to change</p>
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                </svg>
+                <p className="text-sm font-medium text-slate-700">Drop a CSV here or <span className="text-indigo-600">browse</span></p>
+                <p className="text-xs text-slate-400">Only .csv files are accepted</p>
+              </>
+            )}
+          </div>
           <button
             type="submit"
             disabled={!file || submitting}
@@ -99,6 +138,8 @@ export function ImportPage() {
           </button>
         </form>
       )}
+
+      {submitting && <ImportProgress importing={phase === 'import'} />}
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">
@@ -186,6 +227,38 @@ function ImportResultPanel({ result, confirmed }: { result: ImportResult; confir
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+function ImportProgress({ importing }: { importing: boolean }) {
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  const label = importing ? 'Importing employees…' : 'Validating rows…'
+  const hint =
+    elapsed < 5
+      ? 'This may take a moment for large files.'
+      : `Still working… (${elapsed}s)`
+
+  return (
+    <div className="flex items-center gap-3 my-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+      <svg
+        className="animate-spin h-5 w-5 text-indigo-600 shrink-0"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+      </svg>
+      <div>
+        <p className="text-sm font-medium text-slate-800">{label}</p>
+        <p className="text-xs text-slate-500">{hint}</p>
+      </div>
     </div>
   )
 }

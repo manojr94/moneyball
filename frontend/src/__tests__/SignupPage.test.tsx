@@ -26,7 +26,7 @@ function renderSignupPage(search = '') {
       <MemoryRouter initialEntries={[`/signup${search}`]}>
         <Routes>
           <Route path="/signup" element={<SignupPage />} />
-          <Route path="/employees" element={<div>Employees page</div>} />
+          <Route path="/import" element={<div>Import page</div>} />
         </Routes>
       </MemoryRouter>
     </AuthContext.Provider>,
@@ -59,7 +59,7 @@ describe('SignupPage', () => {
       expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument()
     })
 
-    it('calls loginWithToken and redirects to /employees on successful signup', async () => {
+    it('calls loginWithToken and redirects to /import on successful signup', async () => {
       const responseUser = { id: 1, name: 'Jane', email: 'jane@x.com', role: 'hr_admin' as const }
       vi.mocked(registrationsApi.signup).mockResolvedValue({
         status: 201,
@@ -70,7 +70,7 @@ describe('SignupPage', () => {
       await userEvent.type(screen.getByLabelText('Email'), 'jane@x.com')
       await userEvent.type(screen.getByLabelText('Password'), 'password123')
       await userEvent.click(screen.getByRole('button', { name: /create account/i }))
-      await waitFor(() => expect(screen.getByText('Employees page')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('Import page')).toBeInTheDocument())
       expect(mockLoginWithToken).toHaveBeenCalledWith('jwt-token', responseUser)
     })
 

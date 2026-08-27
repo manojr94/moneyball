@@ -5,7 +5,6 @@ import { useApi } from '../hooks/useApi'
 import { useAuth } from '../contexts/AuthContext'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { ErrorMessage } from '../components/ErrorMessage'
-import { EmptyState } from '../components/EmptyState'
 import { formatMoney } from '../utils/money'
 import { thCls, tdCls, inputCls } from '../styles/shared'
 import type { SalaryBand } from '../types'
@@ -84,7 +83,12 @@ export function BandView() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-slate-900">Salary bands</h2>
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Salary bands</h2>
+          <p className="text-sm text-slate-500 mt-0.5">
+            Min / midpoint / max pay ranges per role and pay zone. Compa-ratio = salary ÷ midpoint — 1.0 means paid at midpoint.
+          </p>
+        </div>
         {isAdmin && (
           <button
             onClick={() => setShowForm((s) => !s)}
@@ -186,7 +190,14 @@ export function BandView() {
       {loading ? (
         <LoadingSpinner />
       ) : !bands || bands.length === 0 ? (
-        <EmptyState message="No salary bands found for this date." />
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-6 py-10 text-center">
+          <p className="text-sm font-medium text-slate-700 mb-1">No salary bands for this date</p>
+          <p className="text-sm text-slate-500">
+            {isAdmin
+              ? 'Create a band to define the pay range for a role in a pay zone. Use the "New band" button above to get started.'
+              : 'No bands have been configured yet. Contact your HR admin to set up salary bands.'}
+          </p>
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-slate-200 text-sm">

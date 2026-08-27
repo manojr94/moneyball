@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ChevronUp, SlidersHorizontal, X } from 'lucide-react'
 import { listEmployees } from '../api/employees'
 import { listDepartments } from '../api/departments'
@@ -26,7 +26,6 @@ interface Filters {
   status: EmployeeStatus | ''
   department_id: string
   country_code: string
-  job_title: string
   job_level: string
 }
 
@@ -34,7 +33,6 @@ const EMPTY_FILTERS: Filters = {
   status: '',
   department_id: '',
   country_code: '',
-  job_title: '',
   job_level: '',
 }
 
@@ -43,6 +41,10 @@ function activeFilterCount(filters: Filters): number {
 }
 
 export function EmployeeListPage() {
+  const location = useLocation()
+  const [importBanner, setImportBanner] = useState<number | null>(
+    (location.state as { importSuccess?: number } | null)?.importSuccess ?? null,
+  )
   const [employees, setEmployees] = useState<Employee[]>([])
   const [meta, setMeta] = useState<{ next_cursor: string | null }>({ next_cursor: null })
   const [loading, setLoading] = useState(true)
@@ -126,6 +128,16 @@ export function EmployeeListPage() {
 
   return (
     <div>
+      {importBanner !== null && (
+        <div className="mb-6 flex items-center justify-between rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-sm font-medium text-green-800">
+            Import successful — {importBanner.toLocaleString()} employees added.
+          </p>
+          <button onClick={() => setImportBanner(null)} className="text-green-600 hover:text-green-800 ml-4">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-slate-900">Employees</h2>
         <button
@@ -187,35 +199,25 @@ export function EmployeeListPage() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Job title</label>
-              <input
-                type="text"
-                aria-label="Job title filter"
-                placeholder="e.g. Engineer"
-                value={filters.job_title}
-                onChange={(e) => handleFilterChange('job_title', e.target.value)}
-                className={`${inputCls} w-40`}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">Level</label>
-              <input
-                type="text"
+              <select
                 aria-label="Job level filter"
-                placeholder="e.g. L4"
                 value={filters.job_level}
                 onChange={(e) => handleFilterChange('job_level', e.target.value)}
-                className={`${inputCls} w-24`}
-                maxLength={4}
-              />
+                className={inputCls}
+              >
+                <option value="">All levels</option>
+                {['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'].map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
             </div>
 
             {activeCount > 0 && (
               <div className="flex items-end">
                 <button
                   onClick={clearFilters}
-                  className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                  className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm hover:bg-slate-50 transition-colors"
                 >
                   <X className="w-3.5 h-3.5" />
                   Clear all

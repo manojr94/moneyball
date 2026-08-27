@@ -78,7 +78,7 @@ describe('ImportPage', () => {
 
   it('renders the file picker and preview button', () => {
     renderPage()
-    expect(screen.getByLabelText(/csv file/i)).toBeInTheDocument()
+    expect(screen.getByText(/drop a csv here/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /preview/i })).toBeInTheDocument()
   })
 
@@ -90,7 +90,7 @@ describe('ImportPage', () => {
   it('shows preview summary after a successful dry-run', async () => {
     vi.mocked(importsApi.uploadEmployees).mockResolvedValue(successPreview)
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() => expect(screen.getByText(/2 of 2 rows valid/i)).toBeInTheDocument())
   })
@@ -98,7 +98,7 @@ describe('ImportPage', () => {
   it('shows a confirm button when preview has no errors', async () => {
     vi.mocked(importsApi.uploadEmployees).mockResolvedValue(successPreview)
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /confirm import/i })).toBeInTheDocument(),
@@ -108,7 +108,7 @@ describe('ImportPage', () => {
   it('shows row errors when preview finds invalid rows', async () => {
     vi.mocked(importsApi.uploadEmployees).mockResolvedValue(errorPreview)
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() => expect(screen.getByText(/email has already been taken/i)).toBeInTheDocument())
   })
@@ -116,7 +116,7 @@ describe('ImportPage', () => {
   it('does not show confirm button when preview has errors', async () => {
     vi.mocked(importsApi.uploadEmployees).mockResolvedValue(errorPreview)
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() => screen.getByText(/email has already been taken/i))
     expect(screen.queryByRole('button', { name: /confirm import/i })).not.toBeInTheDocument()
@@ -127,7 +127,7 @@ describe('ImportPage', () => {
       .mockResolvedValueOnce(successPreview)
       .mockResolvedValueOnce(committedResult)
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() => screen.getByRole('button', { name: /confirm import/i }))
     await userEvent.click(screen.getByRole('button', { name: /confirm import/i }))
@@ -142,7 +142,7 @@ describe('ImportPage', () => {
       body: { header_error: 'missing required column(s): email', committed: false, errors: [] },
     })
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() =>
       expect(screen.getByText(/missing required column/i)).toBeInTheDocument(),
@@ -152,7 +152,7 @@ describe('ImportPage', () => {
   it('shows an error message on network failure', async () => {
     vi.mocked(importsApi.uploadEmployees).mockRejectedValue(new Error('Server error (500)'))
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() => expect(screen.getByText(/server error/i)).toBeInTheDocument())
   })
@@ -162,7 +162,7 @@ describe('ImportPage', () => {
       .mockResolvedValueOnce(successPreview)
       .mockResolvedValueOnce(committedResult)
     renderPage()
-    await userEvent.upload(screen.getByLabelText(/csv file/i), makeFile())
+    await userEvent.upload(screen.getByTestId('csv-input'), makeFile())
     await userEvent.click(screen.getByRole('button', { name: /preview/i }))
     await waitFor(() => screen.getByRole('button', { name: /confirm import/i }))
     await userEvent.click(screen.getByRole('button', { name: /confirm import/i }))

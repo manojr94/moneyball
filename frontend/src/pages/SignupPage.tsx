@@ -41,7 +41,7 @@ export function SignupPage() {
       if (status === 201) {
         const data = body as AuthResponse
         loginWithToken(data.token, data.user)
-        navigate('/employees', { replace: true })
+        navigate('/import', { replace: true })
       } else {
         const err = body as Record<string, unknown>
         setError((err['error'] as string | undefined) ?? (err['errors'] as string[] | undefined)?.join(', ') ?? 'Signup failed.')
@@ -59,8 +59,8 @@ export function SignupPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="w-full max-w-sm bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-1">Create your account</h1>
-        <p className="text-sm text-slate-500 mb-6">Moneyball — salary management</p>
+        <p className="text-sm font-semibold tracking-wide text-indigo-600 mb-1">Moneyball</p>
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">Create your account</h1>
 
         {error && (
           <div
@@ -109,6 +109,7 @@ export function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              minLength={8}
               className={fieldCls}
             />
           </div>
