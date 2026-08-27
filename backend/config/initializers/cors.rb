@@ -8,7 +8,7 @@
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
     # Allow your React app's local port
-    origins 'http://localhost:5173'
+    origins 'http://localhost:5173', 'https://moneyball-eu3.pages.dev'
 
     resource '*',
              headers: :any,
